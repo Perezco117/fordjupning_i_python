@@ -1,0 +1,9 @@
+# Ignore everything by default
+*
+
+# But keep .py files
+!*.py
+
+# (optional) also keep .gitignore and README if you want them on GitHub
+!.gitignore
+!README.md
