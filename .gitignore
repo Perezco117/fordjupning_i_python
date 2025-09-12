@@ -1,9 +1,12 @@
 # Ignore everything by default
 *
 
-# But keep .py and .md files
+# But Python files
 !*.py
-!*.md
 
-# And keep gitignore file for Github
+
+# Keep .gitignore itself
 !.gitignore
+
+# Keep README.md
+!README.md
