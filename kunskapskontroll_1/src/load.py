@@ -11,7 +11,9 @@ from .logger import get_logger
 load_dotenv()
 logger = get_logger()
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./data/etl.db")
+BASE_DIR = Path(__file__).resolve().parents[1]
+DEFAULT_DB_PATH = BASE_DIR / "data" / "etl.db"
+DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DEFAULT_DB_PATH}")
 
 def _ensure_db_folder(url: str) -> None:
     if url.startswith("sqlite:///"):

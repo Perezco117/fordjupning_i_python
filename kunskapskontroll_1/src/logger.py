@@ -8,8 +8,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-LOG_DIR = os.getenv("LOG_DIR", "./logs")
+BASE_DIR = Path(__file__).resolve().parents[1]
+
+LOG_DIR = BASE_DIR / os.getenv("LOG_DIR", "data/logs")
 LOG_FILE = os.getenv("LOG_FILE", "app.log")
+
+LOG_PATH = LOG_DIR / LOG_FILE
+
 
 _logger: logging.Logger | None = None
 
@@ -18,16 +23,16 @@ def get_logger() -> logging.Logger:
     if _logger is not None:
         return _logger
 
-    Path(LOG_DIR).mkdir(parents=True, exist_ok=True)
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
     logger = logging.getLogger("etl")
     logger.setLevel(logging.INFO)
     logger.propagate = False  # undvik dubletter
 
     fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
 
-    # Fil
+    # File handler (anchored path)
     fh = RotatingFileHandler(
-        filename=str(Path(LOG_DIR) / LOG_FILE),
+        filename=str(LOG_PATH),
         maxBytes=1_000_000, backupCount=3, encoding="utf-8"
     )
     fh.setFormatter(fmt)

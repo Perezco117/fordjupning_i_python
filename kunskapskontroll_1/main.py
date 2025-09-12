@@ -1,8 +1,9 @@
 # main.py
 from __future__ import annotations
 import os
+from pathlib import Path
 from dotenv import load_dotenv
-from src.logger import get_logger
+from src.logger import get_logger, LOG_PATH
 from src.extract import fetch_movies, ExtractError
 from src.transform import transform_movies, TransformError
 from src.load import get_engine, load_movies_replace
@@ -16,6 +17,12 @@ def main() -> int:
         raw = fetch_movies(query=query, page=1)
         trf = transform_movies(raw)
         engine = get_engine()
+        
+        if engine.url.get_backend_name() == "sqlite":
+            db_fs_path = Path(engine.url.database).resolve()
+            logger.info(f"SQLite path: {db_fs_path}")
+        logger.info(f"Log file path: {LOG_PATH}")
+        
         load_movies_replace(engine, trf)
         logger.info("✅ ETL klart utan fel.")
         return 0
