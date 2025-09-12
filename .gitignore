@@ -1,12 +1,15 @@
 # Ignore everything by default
 *
 
-# But Python files
-!*.py
+# Re-allow traversing directories (so we can match files inside)
+!*/
 
+# Keep Python files anywhere
+!*.py
 
 # Keep .gitignore itself
 !.gitignore
 
-# Keep README.md
+# Keep README
+!README.MD
 !README.md
