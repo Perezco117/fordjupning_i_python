@@ -1,10 +1,30 @@
-from min_miniraknare import MyCalculator
+# main.py
+from __future__ import annotations
+import os
+from dotenv import load_dotenv
+from src.logger import get_logger
+from src.extract import fetch_movies, ExtractError
+from src.transform import transform_movies, TransformError
+from src.load import get_engine, load_movies_replace
 
-calc = MyCalculator()
+def main() -> int:
+    load_dotenv()
+    logger = get_logger()
 
-a = calc.add_numbers(3, 5)
-b = calc.subtract_numbers(5, 4)
-c = calc.divide_numbers(10, 0.5)
-d = calc.multiply_numbers(20, 0.5)
+    query = os.getenv("SEARCH_QUERY", "Batman")
+    try:
+        raw = fetch_movies(query=query, page=1)
+        trf = transform_movies(raw)
+        engine = get_engine()
+        load_movies_replace(engine, trf)
+        logger.info("✅ ETL klart utan fel.")
+        return 0
+    except (ExtractError, TransformError) as e:
+        logger.exception(f"❌ ETL avbröts: {e}")
+        return 1
+    except Exception as e:
+        logger.exception(f"❌ Oväntat fel: {e}")
+        return 2
 
-print(a)
+if __name__ == "__main__":
+    raise SystemExit(main())
