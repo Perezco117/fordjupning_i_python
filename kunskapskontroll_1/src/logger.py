@@ -1,4 +1,3 @@
-# src/logger.py
 from __future__ import annotations
 import logging
 from logging.handlers import RotatingFileHandler

@@ -1,4 +1,3 @@
-# src/load.py
 from __future__ import annotations
 import os
 from pathlib import Path
@@ -37,9 +36,20 @@ def ensure_schema(engine: Engine) -> None:
     with engine.begin() as conn:
         conn.execute(text(sql))
 
-def load_movies_replace(engine: Engine, df: pd.DataFrame) -> None:
-    """Minimalistiskt: ersätt hela tabellen (full refresh)."""
+def load_movies_refresh(engine: Engine, df: pd.DataFrame) -> None:
+    """
+    Full refresh that PRESERVES schema constraints:
+    - Ensures schema exists
+    - DELETEs all rows
+    - Appends new rows (keeps PK/NOT NULL)
+    """
     ensure_schema(engine)
-    # skriv till temporär tabell och ersätt
-    df.to_sql("movies", con=engine, if_exists="replace", index=False)
-    logger.info(f"Laddade {len(df)} rader till tabell 'movies' (replace).")
+    with engine.begin() as conn:
+        conn.execute(text("DELETE FROM movies"))
+
+    if df.empty:
+        logger.info("0 rader – tabellen rensad; inget att ladda.")
+        return
+
+    df.to_sql("movies", con=engine, if_exists="append", index=False)
+    logger.info(f"Laddade {len(df)} rader till 'movies' (full refresh, behåller constraints).")
