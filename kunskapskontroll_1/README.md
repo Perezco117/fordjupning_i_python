@@ -5,10 +5,31 @@ API-nyckeln sparas lokalt i .env (privat) medan .env.example visar vilka variabl
 Skapa en .env-fil baserad på .env.example och fyll i din egen OMDb API-nyckel.
 Flödet består av moduler för extract, transform, load och logger, och körs via main.py som även hanterar fel och loggning. Vid körning skapas databasen etl.db i en data-mapp samt loggar i logs/app.log.
 Dessa filer är exkluderade från GitHub via .gitignore.
-Projektet kan köras manuellt med kommandot python main.py eller automatiseras via run_etl.bat och Windows Task Scheduler. Tester finns i mappen tests/ och körs med pytest för att säkerställa att varje del fungerar korrekt.
+Projektet körs med main.py, man kan ändra vad man vill söka för filmtitel på .env filen.
 
-## Installation
+## Paket som används som krävs installation
+python-dotenv requests pandas sqlalchemy pytest
 
-Projektet är byggt i Python 3.11 (fungerar även med andra 3.x-versioner). Följande externa bibliotek behövs och kan installeras med följande kod:
+## Snabbstart
+1. Kopiera `.env.example` → `.env` och fyll i `OMDB_API_KEY`.
+2. Sätt `DATABASE_URL` till en **absolut** sökväg (exempel finns i `.env.example`).
+3. Ändra filmtitel i .env med instruktioner från .env.example.
+4. Kör: `python main.py`
+   - Loggar: `data/logs/app.log`
+   - Exakt DB-sökväg skrivs i loggen som “SQLite path: …”
 
-pip install python-dotenv requests pandas SQLAlchemy pytest
+## Tester
+Kör alla tester med pytest:
+`pytest -q`
+
+(Om du kör via Anaconda/VS Code: välj din miljö med installerade paket och kör via VS Code's testing flik)
+
+## Katalogstrukturen
+project-root/
+  main.py
+  src/ (extract/transform/load/logger)
+  tests/ (test_*.py)
+  .env  / .env.example
+  data/ (skapas automatiskt)
+
+  ## Uppdateras här sedan med hur du kör .db filen i Power BI.

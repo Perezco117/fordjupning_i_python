@@ -18,26 +18,41 @@ LOG_PATH = LOG_DIR / LOG_FILE
 _logger: logging.Logger | None = None
 
 def get_logger() -> logging.Logger:
+    """
+    Skapa en 'etl' loggare på ett idempotent vis:
+    - Alltid (re)konfigurerar loggaren baserad på nuvarande env värden.
+    - Raderar förinställda handlers för att undvika duplicering,
+      vilket kan hända efter att modulen laddar om under testning.
+    """
     global _logger
-    if _logger is not None:
-        return _logger
-
+    
     LOG_DIR.mkdir(parents=True, exist_ok=True)
+
     logger = logging.getLogger("etl")
     logger.setLevel(logging.INFO)
-    logger.propagate = False  # undvik dubletter
+    logger.propagate = False  # Undviker dubbelloggning via "root"
+
+    # --- Idempotens: raderar alla gamla handlers på denna loggare ---
+    if logger.handlers:
+        for h in list(logger.handlers):
+            logger.removeHandler(h)
+            try:
+                h.close()
+            except Exception:
+                pass
+    # -----------------------------------------------------------
 
     fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
 
-    # File handler (anchored path)
     fh = RotatingFileHandler(
         filename=str(LOG_PATH),
-        maxBytes=1_000_000, backupCount=3, encoding="utf-8"
+        maxBytes=1_000_000,
+        backupCount=3,
+        encoding="utf-8",
     )
     fh.setFormatter(fmt)
     logger.addHandler(fh)
 
-    # Konsol (bra under utveckling)
     sh = logging.StreamHandler()
     sh.setFormatter(fmt)
     logger.addHandler(sh)
