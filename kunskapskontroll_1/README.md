@@ -32,4 +32,27 @@ project-root/
   .env  / .env.example
   data/ (skapas automatiskt)
 
-  ## Uppdateras här sedan med hur du kör .db filen i Power BI.
+## Öppna .db filen i Power BI utan installeringar
+1. Spara fullständiga filvägen till din etl.db fil.
+2. Öppna Power BI Desktop -> File -> Options and Settings -> Options -> Python Scripting
+   Home directory: sätt vägen till den Python du faktiskt använder(Du kan hitta i cmd ruta med `where python` och då visas vart du har
+   Python installerat om du inte använder Anaconda. Använder du Anaconda får du gå genom Anaconda Prompt med samma prompt som ovan.)
+3. Få upp Python script för att få in datan:
+   Home -> Get Data -> More... -> Other -> Python Script -> Connect
+4. Kopiera nedan kod för att få se vad det finns för tabeller:
+  `import sqlite3, pandas as pd
+   db_path = r"C:\PATH\TO\YOUR\etl.db"  # ← change this
+
+   with sqlite3.connect(db_path) as conn:
+      dataset = pd.read_sql(
+         "SELECT name AS table_name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name;",
+         conn
+      )`
+   Klicka sedan OK -> Dataset -> Load (eller Transform Data)
+5. Nu när du ser vilka tabeller som finns, kan du ladda upp den tabell du vill ha med följande kod(kör steg 3 igen):
+  `import sqlite3, pandas as pd
+   db_path = r"C:\PATH\TO\YOUR\etl.db"     # ← change this
+   table   = "movies"                       # ← change to your table name exactly as listed
+   
+   with sqlite3.connect(db_path) as conn:
+      dataset = pd.read_sql(f'SELECT * FROM "{table}"', conn)`
