@@ -1,0 +1,41 @@
+# ---------------------------
+# Känsliga miljöfiler
+# ---------------------------
+.env
+*.env
+
+# ---------------------------
+# Databaser, loggar och genererade filer
+# ---------------------------
+**/data/**/*.db
+**/data/**/*.sqlite
+**/data/**/*.log
+**/data/**/*.csv
+**/data/**/*.xlsx
+**/data/**/*.json
+
+# ---------------------------
+# Python cache och test-cache
+# ---------------------------
+__pycache__/
+*.pyc
+*.pyo
+pytest_cache/
+.cache/
+
+# ---------------------------
+# Editor- och systemfiler
+# ---------------------------
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# ---------------------------
+# Behåll alltid dessa i repo
+# ---------------------------
+!README.md
+!README.MD
+!.gitignore
+!.env.example
+!requirements.txt
