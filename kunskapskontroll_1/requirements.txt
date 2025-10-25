@@ -1,0 +1,13 @@
+python-dotenv
+requests
+pandas
+SQLAlchemy>=2.0
+pytest
+
+
+import sqlite3, pandas as pd
+   db_path = r"C:\Users\kwanj\Documents\EC_Utbildning\Data_Scientist\08_Fördjupning_i_Pythonprogrammering\kunskapskontroll\kunskapskontroll_1\data\etl.db"
+   table   = "movies"
+   
+   with sqlite3.connect(db_path) as conn:
+      dataset = pd.read_sql(f'SELECT * FROM "{table}"', conn)
