@@ -15,9 +15,8 @@ class DummyResp:
 
 
 def test_fetch_movies_basic_success(monkeypatch):
-    # Säkerställ att vi har en "API-nyckel" så _check_api_key inte bråkar
+    # säkerställ API_KEY så reload funkar
     monkeypatch.setenv("OMDB_API_KEY", "TESTKEY")
-    # Vi behöver reloada modulen så att ex.OMDB_API_KEY uppdateras
     import importlib
     importlib.reload(ex)
 
@@ -30,9 +29,9 @@ def test_fetch_movies_basic_success(monkeypatch):
     }
 
     def fake_get(url, params=None, timeout=None):
-        # kontrollera att rätt endpoint kallas
+        # vi vill säkerställa att funktionen använder ?s= och inte ?i=
+        assert "s" in params
         assert "apikey" in params
-        assert "s" in params  # search query
         return DummyResp(sample_payload, 200)
 
     monkeypatch.setattr(requests, "get", fake_get)
@@ -85,7 +84,7 @@ def test_fetch_movie_details_success(monkeypatch):
     }
 
     def fake_get(url, params=None, timeout=None):
-        # här testar vi att funktionen använder 'i' (imdbID) och inte bara 's'
+        # vi vill säkerställa att funktionen använder ?i= och inte ?s=
         assert "i" in params
         return DummyResp(detail_payload, 200)
 
@@ -97,96 +96,8 @@ def test_fetch_movie_details_success(monkeypatch):
     assert out["Runtime"] == "123 min"
 
 
-def test_fetch_movies_full_happy_path(monkeypatch):
-    """
-    fetch_movies_full ska:
-    1. anropa fetch_movies_basic -> få en lista med två imdbID
-    2. anropa fetch_movie_details för varje imdbID
-    3. returnera DataFrame med utökade kolumner
-    Vi mockar requests.get så att:
-       - om params har "s": returnera söklista
-       - om params har "i": returnera detalj för just den imdbID:n
-    """
-    monkeypatch.setenv("OMDB_API_KEY", "TESTKEY")
-    import importlib
-    importlib.reload(ex)
-
-    search_payload = {
-        "Response": "True",
-        "Search": [
-            {"imdbID": "tt0001", "Title": "Movie A", "Year": "1999", "Type": "movie"},
-            {"imdbID": "tt0002", "Title": "Movie B", "Year": "2001", "Type": "series"},
-        ],
-    }
-
-    details_payloads = {
-        "tt0001": {
-            "Response": "True",
-            "imdbID": "tt0001",
-            "Title": "Movie A",
-            "Year": "1999",
-            "Type": "movie",
-            "Genre": "Action, Thriller",
-            "Director": "Dir A",
-            "Country": "USA",
-            "Runtime": "110 min",
-            "imdbRating": "7.1",
-            "imdbVotes": "10,000",
-        },
-        "tt0002": {
-            "Response": "True",
-            "imdbID": "tt0002",
-            "Title": "Movie B",
-            "Year": "2001",
-            "Type": "series",
-            "Genre": "Drama",
-            "Director": "Dir B",
-            "Country": "UK",
-            "Runtime": "45 min",
-            "imdbRating": "8.2",
-            "imdbVotes": "25,500",
-        },
-    }
-
-    def fake_get(url, params=None, timeout=None):
-        if "s" in params:
-            # sök
-            return DummyResp(search_payload, 200)
-        elif "i" in params:
-            imdb_id = params["i"]
-            return DummyResp(details_payloads[imdb_id], 200)
-        else:
-            raise AssertionError("Unexpected params to requests.get")
-
-    monkeypatch.setattr(requests, "get", fake_get)
-
-    df = ex.fetch_movies_full(query="Batman", page=1, sleep_sec=0)
-
-    # Kolumner vi lovade i fetch_movies_full
-    expected_cols = [
-        "imdbID",
-        "Title",
-        "Year",
-        "Type",
-        "Genre",
-        "Director",
-        "Country",
-        "Runtime",
-        "imdbRating",
-        "imdbVotes",
-    ]
-    assert all(col in df.columns for col in expected_cols)
-    assert len(df) == 2
-    assert set(df["imdbID"]) == {"tt0001", "tt0002"}
-
-
 def test_fetch_all_movies_full_multiple_pages(monkeypatch):
-    """
-    Vi mockar fetch_movies_basic och fetch_movie_details för att simulera
-    2 sidor med 3 titlar totalt. Vi testar att funktionen returnerar alla rader unikt.
-    """
-
-    # fake data för två sidor
+    # page1 har två titlar, page2 har en tredje, page3 är tom => loopen bryter
     page1 = pd.DataFrame([
         {"imdbID": "tt1", "Title": "Film1", "Year": "2023", "Type": "movie"},
         {"imdbID": "tt2", "Title": "Film2", "Year": "2022", "Type": "movie"},
@@ -195,26 +106,134 @@ def test_fetch_all_movies_full_multiple_pages(monkeypatch):
         {"imdbID": "tt3", "Title": "Film3", "Year": "2021", "Type": "series"},
     ])
 
-    # monkeypatcha functions
-    monkeypatch.setattr(ex, "fetch_movies_basic", lambda query, page: page1 if page == 1 else (page2 if page == 2 else pd.DataFrame()))
-    monkeypatch.setattr(ex, "fetch_movie_details", lambda imdb_id: {"imdbID": imdb_id, "Title": imdb_id, "Year": "2023", "Type": "movie"})
+    def fake_basic(query, page):
+        if page == 1:
+            return page1
+        elif page == 2:
+            return page2
+        else:
+            return pd.DataFrame()
 
-    df = ex.fetch_all_movies_full(query="test", max_pages=3)
-    assert len(df) == 3
+    def fake_details(imdb_id):
+        # mocka minimalt svar. Resten av kolumner fylls som pd.NA i funktionen.
+        return {
+            "imdbID": imdb_id,
+            "Title": imdb_id,
+            "Year": "2023",
+            "Type": "movie",
+        }
+
+    monkeypatch.setattr(ex, "fetch_movies_basic", fake_basic)
+    monkeypatch.setattr(ex, "fetch_movie_details", fake_details)
+
+    df = ex.fetch_all_movies_full(query="test", max_pages=3, sleep_sec=0)
     assert set(df["imdbID"]) == {"tt1", "tt2", "tt3"}
+    assert len(df) == 3
+
+
+def test_fetch_all_movies_full_respects_year_min(monkeypatch):
+    """
+    Viktigt: vi testar att year_min hindrar gamla titlar från att ens hämta detaljer.
+    """
+    calls = {"details_calls": []}
+
+    page_only = pd.DataFrame([
+        {"imdbID": "tt_new", "Title": "NewFilm", "Year": "2023", "Type": "movie"},
+        {"imdbID": "tt_old", "Title": "OldFilm", "Year": "2015", "Type": "movie"},
+    ])
+
+    def fake_basic(query, page):
+        # bara en sida, sen tom
+        return page_only if page == 1 else pd.DataFrame()
+
+    def fake_details(imdb_id):
+        # logga vilka som faktiskt försöker hämta detaljer
+        calls["details_calls"].append(imdb_id)
+        return {
+            "imdbID": imdb_id,
+            "Title": imdb_id,
+            "Year": "2023",
+            "Type": "movie",
+        }
+
+    monkeypatch.setattr(ex, "fetch_movies_basic", fake_basic)
+    monkeypatch.setattr(ex, "fetch_movie_details", fake_details)
+
+    df = ex.fetch_all_movies_full(
+        query="test",
+        max_pages=5,
+        sleep_sec=0,
+        year_min=2020,          # <- core grej
+        global_seen_ids=None,
+    )
+
+    # Endast tt_new ska komma med (tt_old är från 2015)
+    assert list(df["imdbID"]) == ["tt_new"]
+    # Och viktigt: vi ska aldrig ens försöka hämta detaljer för tt_old
+    assert calls["details_calls"] == ["tt_new"]
+
+
+def test_fetch_all_movies_full_respects_global_seen_ids(monkeypatch):
+    """
+    Viktigt: vi testar att global_seen_ids gör att vi INTE hämtar detaljer igen
+    för samma imdbID.
+    """
+    calls = {"details_calls": []}
+
+    page_only = pd.DataFrame([
+        {"imdbID": "tt1", "Title": "Film1", "Year": "2024", "Type": "movie"},
+    ])
+
+    def fake_basic(query, page):
+        # Samma sida varje gång -> borde bryta efter första loop ändå.
+        return page_only if page == 1 else pd.DataFrame()
+
+    def fake_details(imdb_id):
+        calls["details_calls"].append(imdb_id)
+        return {
+            "imdbID": imdb_id,
+            "Title": imdb_id,
+            "Year": "2024",
+            "Type": "movie",
+        }
+
+    monkeypatch.setattr(ex, "fetch_movies_basic", fake_basic)
+    monkeypatch.setattr(ex, "fetch_movie_details", fake_details)
+
+    # Säg att vi redan har samlat tt1 från en tidigare query
+    already_seen = {"tt1"}
+
+    df = ex.fetch_all_movies_full(
+        query="test",
+        max_pages=5,
+        sleep_sec=0,
+        year_min=None,
+        global_seen_ids=already_seen,
+    )
+
+    # Om den respekterar global_seen_ids ska vi inte ens kalla fake_details
+    assert df.empty
+    assert calls["details_calls"] == []
 
 
 def test_build_dataset_for_year_range_filters_years(monkeypatch):
     """
-    Vi mockar fetch_all_movies_full så att varje query ger olika årtal.
-    Vi kontrollerar att funktionen bara behåller titlar >= year_min.
+    Den här testar build_dataset_for_year_range.
+    Vi mockar fetch_all_movies_full så att:
+    - query "old" ger bara 2018
+    - query "new" ger bara 2023
+    build_dataset_for_year_range ska bara behålla >= 2021.
     """
 
-    def fake_fetch_all_movies_full(query, max_pages, sleep_sec):
+    def fake_fetch_all_movies_full(query, max_pages, sleep_sec, year_min=None, global_seen_ids=None):
         if query == "old":
-            return pd.DataFrame([{"imdbID": "tt_old", "Title": "Oldie", "Year": "2018", "Type": "movie"}])
+            return pd.DataFrame([
+                {"imdbID": "tt_old", "Title": "Oldie", "Year": "2018", "Type": "movie"}
+            ])
         else:
-            return pd.DataFrame([{"imdbID": "tt_new", "Title": "Newie", "Year": "2023", "Type": "movie"}])
+            return pd.DataFrame([
+                {"imdbID": "tt_new", "Title": "Newie", "Year": "2023", "Type": "movie"}
+            ])
 
     monkeypatch.setattr(ex, "fetch_all_movies_full", fake_fetch_all_movies_full)
 
@@ -225,6 +244,8 @@ def test_build_dataset_for_year_range_filters_years(monkeypatch):
         sleep_sec=0
     )
 
-    # endast "new" ska vara kvar eftersom 2018 < 2021
     assert len(df) == 1
     assert df.iloc[0]["imdbID"] == "tt_new"
+    # check that __source_query__ column is still added for context
+    assert "__source_query__" in df.columns
+    assert df.iloc[0]["__source_query__"] == "new"

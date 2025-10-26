@@ -36,7 +36,7 @@ def main() -> int:
         "life", "world", "love", "dream", "dark", "light",
         "city", "road", "story", "star", "war", "home",
         "game", "blood", "night", "fire", "sea", "music",
-        "king", "heart", "man", "night"
+        "king", "heart", "man",
     ]
 
     # Vi vill ha ~5 års historik från nu (2025 -> 2020)

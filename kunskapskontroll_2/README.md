@@ -49,7 +49,7 @@ Projektet skulle också visa förståelse för Python-modularitet, datarensning 
 Projektet består av följande moduler:
 
 
-* **`extract.py`** – Hämtar data från OMDb API, hanterar paginering och fel (t.ex. "Too Many Results").
+* **`extract.py`** – Hämtar data från OMDb API, hanterar paginering, årsfilter och dubblettkontroll (för minimerade API-anrop).
 
 
 * **`transform.py`** – Rensar, konverterar och filtrerar data. Nu parametriserad för valfri genre, typ (film/serie) och unik kolumn.
@@ -81,11 +81,15 @@ Alla filer sparas alltid **inom samma mapp som `main.py`** – oberoende av milj
 #### 1. Extract – datainsamling
 
 
-Data hämtas från OMDb API med flera breda sökord (ex: *life, dream, city, night, war, love, man*) samt kombinerade årssökningar.
+Data hämtas från OMDb API med flera breda sökord (ex: *life, dream, city, night, war, love, man*) samt paginering (flera sidor per sökord).
 
-För att undvika “Too many results” delas anropen upp i flera queries och sidor.
+För att minska antalet API-anrop och undvika “Too many results” används nu två optimeringar:
 
-Vid fel hanteras undantag (`ExtractError`) med loggning i stället för att krascha.
+1. **Årsfilter (`year_min`)** – filmer äldre än ett visst år (t.ex. 2020) hämtas inte ens i detalj.
+
+2. **Global dubblettkontroll** – samma `imdbID` hämtas bara en gång, även om den dyker upp i flera sökord.
+
+Vid fel hanteras undantag (`ExtractError`) med loggning istället för att krascha.
 
 Från och med denna version hämtas filmer från **de senaste 5 åren (2020–2025)**.
 
@@ -207,7 +211,7 @@ Tester finns för:
 * **Main** – full pipeline testad med mockad data utan nätverk.
 
 
-Alla tester är gröna
+Alla tester är gröna, inklusive nya tester som verifierar att årsfiltrering och dubblettkontroll fungerar korrekt i `extract.py`.
 
 ---
 
@@ -380,3 +384,5 @@ Koden är modulär, parameterstyrd, och kan användas som mall för fler datakä
 Pipeline-strukturen, testningen och dokumentationen gör projektet redo för användning i professionella sammanhang.
 
 Problemet med just denna API är dock att den är väldigt begränsad i antal sökningar. Därför blir analysdelen inte bra pga för lite data.
+
+De senaste förbättringarna inkluderar smart filtrering av gamla filmer och en global dubblettkontroll som drastiskt minskar antalet API-anrop utan att påverka resultatet.

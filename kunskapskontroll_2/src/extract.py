@@ -79,68 +79,31 @@ def fetch_movie_details(imdb_id: str) -> dict:
     return data
 
 
-def fetch_movies_full(query: str, page: int = 1, sleep_sec: float = 0.2) -> pd.DataFrame:
-    """
-    (Enkel variant, en sida.)
-    1. Hämtar search results för en sida
-    2. Hämtar detaljer för varje imdbID
-    3. Returnerar DataFrame med utökade kolumner.
-    Behålls för bakåtkompatibilitet / tester.
-    """
-    base_df = fetch_movies_basic(query=query, page=page)
-
-    if base_df.empty:
-        logger.warning("Inget resultat från sökningen - returnerar tom DF.")
-        return pd.DataFrame(columns=[
-            "imdbID", "Title", "Year", "Type",
-            "Genre", "Director", "Country",
-            "Runtime", "imdbRating", "imdbVotes",
-        ])
-
-    details_list: list[dict] = []
-    for imdb_id in base_df["imdbID"].unique():
-        d = fetch_movie_details(imdb_id)
-        if d:
-            details_list.append(d)
-        time.sleep(sleep_sec)
-
-    if not details_list:
-        logger.warning("Inga detaljer kunde hämtas - returnerar basic info.")
-        return base_df
-
-    details_df = pd.DataFrame(details_list)
-
-    cols_we_want = [
-        "imdbID",
-        "Title",
-        "Year",
-        "Type",
-        "Genre",
-        "Director",
-        "Country",
-        "Runtime",
-        "imdbRating",
-        "imdbVotes",
-    ]
-
-    for c in cols_we_want:
-        if c not in details_df.columns:
-            details_df[c] = pd.NA
-
-    final_df = details_df[cols_we_want].copy()
-    logger.info(f"Hämtade detaljer (1 sida) för {len(final_df)} titlar.")
-    return final_df
-
-
-def fetch_all_movies_full(query: str, max_pages: int = 10, sleep_sec: float = 0.2) -> pd.DataFrame:
+def fetch_all_movies_full(
+    query: str,
+    max_pages: int = 10,
+    sleep_sec: float = 0.2,
+    year_min: int | None = None,
+    global_seen_ids: set[str] | None = None,
+) -> pd.DataFrame:
     """
     Hämtar FLERA sidor för en sökterm.
     Loopar page=1..max_pages tills vi inte får fler resultat.
     För varje imdbID hämtas detaljer (Genre, Runtime, Rating, Votes, etc).
-    Returnerar en DataFrame med full info för alla unika titlar.
+
+    OPTIMERINGAR (för färre API-anrop):
+    - Vi hoppar över titlar som är äldre än year_min INNAN vi ringer fetch_movie_details.
+    - Vi hoppar över imdbID som redan finns i global_seen_ids
+      (titlar vi redan har hämtat via en annan sida eller en annan query).
+
+    Returnerar en DataFrame med full info för alla (nya, relevanta) titlar.
     """
     all_details: list[dict] = []
-    seen_ids: set[str] = set()
+
+    # Om main/bygg-steget skickar in en delad set så använder vi den.
+    # Annars skapar vi en lokal set för den här queryn.
+    if global_seen_ids is None:
+        global_seen_ids = set()
 
     for page in range(1, max_pages + 1):
         page_df = fetch_movies_basic(query=query, page=page)
@@ -150,14 +113,30 @@ def fetch_all_movies_full(query: str, max_pages: int = 10, sleep_sec: float = 0.
             logger.info(f"Inga fler resultat för query={query} efter page={page-1}. Stoppar.")
             break
 
-        for imdb_id in page_df["imdbID"].unique():
-            if imdb_id in seen_ids:
+        # Vi går rad för rad (istället för bara unique()) så vi kan läsa Year per titel
+        for _, row in page_df.iterrows():
+            imdb_id = row.get("imdbID")
+            year_raw = row.get("Year")
+
+            # Försök tolka första 4 siffrorna i Year (t.ex. "2022–", "2021-2023")
+            year_clean = None
+            if isinstance(year_raw, str) and len(year_raw) >= 4 and year_raw[:4].isdigit():
+                year_clean = int(year_raw[:4])
+
+            # 1. Årsfilter: hoppa över äldre titlar innan vi ens slår detaljer
+            if year_min is not None and year_clean is not None and year_clean < year_min:
                 continue
 
+            # 2. Dublettfilter över hela körningen:
+            #    hoppa om vi redan har hämtat detaljer för detta imdbID
+            if imdb_id in global_seen_ids:
+                continue
+
+            # Om den överlever båda filtren -> hämta detaljer
             det = fetch_movie_details(imdb_id)
             if det:
                 all_details.append(det)
-                seen_ids.add(imdb_id)
+                global_seen_ids.add(imdb_id)
 
             time.sleep(sleep_sec)
 
@@ -181,7 +160,7 @@ def fetch_all_movies_full(query: str, max_pages: int = 10, sleep_sec: float = 0.
             details_df[c] = pd.NA
 
     final_df = details_df[cols_we_want].copy()
-    logger.info(f"[{query}] Totalt {len(final_df)} unika titlar över flera sidor.")
+    logger.info(f"[{query}] Totalt {len(final_df)} titlar efter filtrering/avdubblering.")
     return final_df
 
 
@@ -195,14 +174,28 @@ def build_dataset_for_year_range(
     Kör fetch_all_movies_full för flera sökord (t.ex. ["the","love","night","2024","2023"])
     Slår ihop alla resultat, tar bort dubbletter och filtrerar på år >= year_min.
 
-    Poängen: OMDb stödjer inte 'ge mig alla filmer per år', så vi bygger ett
-    representativt dataset själva genom breda söktermer.
+    OPTIMERINGAR (för färre API-anrop totalt):
+    - Vi skapar en gemensam global_seen_ids = set() här,
+      och skickar in samma set till varje fetch_all_movies_full().
+      Det betyder att om t.ex. 'The Dark Knight' dyker upp i både "dark" och "night"
+      så hämtar vi detaljer EN gång, inte två.
+    - Vi skickar också ner year_min så att fetch_all_movies_full
+      inte hämtar detaljer alls för gamla titlar.
     """
 
     all_batches: list[pd.DataFrame] = []
 
+    # Delad set över ALLA queries i denna körning
+    global_seen_ids: set[str] = set()
+
     for q in queries:
-        df_q = fetch_all_movies_full(query=q, max_pages=max_pages_per_query, sleep_sec=sleep_sec)
+        df_q = fetch_all_movies_full(
+            query=q,
+            max_pages=max_pages_per_query,
+            sleep_sec=sleep_sec,
+            year_min=year_min,
+            global_seen_ids=global_seen_ids,
+        )
         if not df_q.empty:
             df_q["__source_query__"] = q
             all_batches.append(df_q)
@@ -218,7 +211,8 @@ def build_dataset_for_year_range(
 
     big = pd.concat(all_batches, ignore_index=True)
 
-    # Ta bort dubbletter på imdbID
+    # Ta bort dubbletter på imdbID (ska i princip redan vara unikt pga global_seen_ids,
+    # detta är mest en sista säkerhetsspärr)
     big = big.drop_duplicates(subset=["imdbID"]).reset_index(drop=True)
 
     # Filtrera på år (Year kan vara '2021–2022', '2024', 'N/A'...)
