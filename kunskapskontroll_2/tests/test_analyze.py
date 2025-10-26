@@ -1,158 +1,165 @@
 import pandas as pd
 import pytest
-from sqlalchemy import create_engine, text
+import importlib
+from pathlib import Path
+
 import src.analyze as an
-import src.load as ld
 
 
-def _prep_in_memory_db():
+def _sample_movies_df():
     """
-    Skapar en in-memory sqlite engine med samma schema
-    som load.ensure_schema() definierar, och fyller med lite testdata.
-    Returnerar engine.
+    Skapa en liten fejkad movies-tabell som liknar vad som ligger i SQLite.
+    Viktigt: kolumnnamnen ska matcha vad load.py skriver in.
     """
-    engine = create_engine("sqlite:///:memory:", future=True)
-    ld.ensure_schema(engine)
-
-    sample = pd.DataFrame([
+    return pd.DataFrame([
         {
             "imdb_id": "tt1",
-            "title": "Foo",
-            "year": 2000,
+            "title": "Action Film",
+            "year": 2024.0,
             "type": "movie",
-            "genre_full": "Action, Thriller",
+            "genre": "Action, Thriller",
             "genre_primary": "Action",
             "director": "Dir A",
             "country": "USA",
-            "runtime_min": 110,
-            "imdb_rating": 7.0,
-            "imdb_votes": 10000,
-            "fetched_at": "2025-01-01T00:00:00Z",
+            "runtime_min": 120.0,
+            "imdb_rating": 7.5,
+            "imdb_votes": 12345.0,
+            "fetched_at": "2025-10-26T12:00:00",
         },
         {
             "imdb_id": "tt2",
-            "title": "Bar",
-            "year": 2000,
+            "title": "Drama Film",
+            "year": 2024.0,
             "type": "movie",
-            "genre_full": "Drama",
+            "genre": "Drama",
             "genre_primary": "Drama",
             "director": "Dir B",
             "country": "UK",
-            "runtime_min": 90,
-            "imdb_rating": 9.0,
-            "imdb_votes": 20000,
-            "fetched_at": "2025-01-01T00:00:00Z",
+            "runtime_min": 100.0,
+            "imdb_rating": 8.0,
+            "imdb_votes": 5555.0,
+            "fetched_at": "2025-10-26T12:05:00",
         },
         {
             "imdb_id": "tt3",
-            "title": "Baz",
-            "year": 1999,
-            "type": "series",
-            "genre_full": "Drama",
-            "genre_primary": "Drama",
+            "title": "Old Thriller",
+            "year": 2022.0,
+            "type": "movie",
+            "genre": "Thriller, Crime",
+            "genre_primary": "Thriller",
             "director": "Dir C",
-            "country": "SE",
-            "runtime_min": 45,
-            "imdb_rating": 8.0,
-            "imdb_votes": 15000,
-            "fetched_at": "2025-01-02T00:00:00Z",
+            "country": "CA",
+            "runtime_min": 90.0,
+            "imdb_rating": 6.0,
+            "imdb_votes": 2000.0,
+            "fetched_at": "2025-10-26T12:10:00",
         },
     ])
-    sample.to_sql("movies", con=engine, if_exists="append", index=False)
-    return engine
-
-
-def test_read_movies_df(monkeypatch):
-    # mocka get_engine så analyze använder vår in-memory DB
-    engine = _prep_in_memory_db()
-
-    def fake_get_engine():
-        return engine
-
-    monkeypatch.setattr(an, "get_engine", fake_get_engine)
-
-    df = an.read_movies_df()
-    assert isinstance(df, pd.DataFrame)
-    assert len(df) == 3
-    assert set(df.columns) >= {
-        "imdb_id",
-        "title",
-        "year",
-        "genre_primary",
-        "imdb_rating",
-    }
 
 
 def test_genre_rating_summary_and_year_count_summary(monkeypatch):
-    engine = _prep_in_memory_db()
+    """
+    genre_rating_summary() ska räkna snittbetyg och count per genre_primary.
+    year_count_summary() ska räkna hur många filmer per år.
+    """
 
-    def fake_get_engine():
-        return engine
-
-    monkeypatch.setattr(an, "get_engine", fake_get_engine)
-
-    df = an.read_movies_df()
+    df = _sample_movies_df()
 
     gsum = an.genre_rating_summary(df)
-    # genre_primary Action: bara tt1 (7.0)
-    # genre_primary Drama: tt2 (9.0) och tt3 (8.0) -> mean = 8.5
-    assert set(gsum["genre_primary"]) == {"Action", "Drama"}
-    drama_row = gsum.loc[gsum["genre_primary"] == "Drama"]
-    assert pytest.approx(drama_row["avg_imdb_rating"].item(), rel=1e-6) == 8.5
-    assert drama_row["count_titles"].item() == 2
-
     ysum = an.year_count_summary(df)
-    # år 1999: 1 titel (Baz, imdb_rating=8.0)
-    # år 2000: 2 titlar (7.0, 9.0) -> mean 8.0
-    row1999 = ysum.loc[ysum["year"] == 1999]
-    assert row1999["count_titles"].item() == 1
-    assert pytest.approx(row1999["avg_imdb_rating"].item(), rel=1e-6) == 8.0
 
-    row2000 = ysum.loc[ysum["year"] == 2000]
-    assert row2000["count_titles"].item() == 2
-    assert pytest.approx(row2000["avg_imdb_rating"].item(), rel=1e-6) == 8.0
+    # genre_rating_summary: vi ska ha Action, Drama, Thriller
+    assert set(gsum["genre_primary"]) == {"Action", "Drama", "Thriller"}
+
+    # checka t.ex. Drama-raden (med imdb_rating 8.0 och bara en rad)
+    drama_row = gsum.loc[gsum["genre_primary"] == "Drama"].iloc[0]
+    # pytest.approx för att tåla floatjitter
+    assert pytest.approx(drama_row["avg_imdb_rating"], rel=1e-6) == 8.0
+    assert drama_row["count"] == 1
+
+    # year_count_summary: ska innehålla 2024 och 2022
+    assert set(ysum["year"]) == {2024.0, 2022.0}
+    # Filmerna år 2024: tt1 och tt2 -> count = 2
+    row_2024 = ysum.loc[ysum["year"] == 2024.0].iloc[0]
+    assert row_2024["count"] == 2
 
 
 def test_export_analysis_creates_csv(monkeypatch, tmp_path):
     """
     export_analysis() ska:
-    - läsa DB via read_movies_df()
-    - räkna gsum / ysum
-    - skriva 2 csv-filer till ANALYSIS_DIR
+    - läsa data via read_movies_df()
+    - göra gsum / ysum
+    - skriva två csv:er till ANALYSIS_DIR
     Vi mockar:
-        - get_engine -> in-memory
-        - ANALYSIS_DIR -> tmp_path / "analysis"
+      - read_movies_df() -> sample df
+      - ANALYSIS_DIR -> tmp_path / "analysis"
     """
-    engine = _prep_in_memory_db()
 
-    def fake_get_engine():
-        return engine
+    # 1. mocka read_movies_df() så vi inte slår riktig DB
+    monkeypatch.setattr(an, "read_movies_df", lambda: _sample_movies_df())
 
-    # 1. mocka så analyze använder vår in-memory engine
-    monkeypatch.setattr(an, "get_engine", fake_get_engine)
-
-    # 2. mocka analyssökvägen
-    new_analysis_dir = tmp_path / "analysis"
-    # se till att mappen finns så pandas kan skriva
-    new_analysis_dir.mkdir(parents=True, exist_ok=True)
+    # 2. peka ANALYSIS_DIR till tempmapp
+    new_analysis_dir = tmp_path / "analysis_dir"
     monkeypatch.setattr(an, "ANALYSIS_DIR", new_analysis_dir)
 
-    # 3. kör export_analysis
+    # Säkerställ att directory inte redan finns, vi testar mkdir i analyze.export_analysis()
+    assert not new_analysis_dir.exists()
+
+    # 3. Kör export_analysis
     an.export_analysis()
 
-    genre_csv = new_analysis_dir / "genre_rating_summary.csv"
-    year_csv = new_analysis_dir / "year_count_summary.csv"
+    # 4. Kontrollera att outputfiler skapades
+    gsum_path = new_analysis_dir / "genre_rating_summary.csv"
+    ysum_path = new_analysis_dir / "year_count_summary.csv"
 
-    assert genre_csv.exists()
-    assert year_csv.exists()
+    assert gsum_path.exists(), "genre_rating_summary.csv borde ha skapats"
+    assert ysum_path.exists(), "year_count_summary.csv borde ha skapats"
 
-    gdf = pd.read_csv(genre_csv)
-    ydf = pd.read_csv(year_csv)
+    # 5. Läs tillbaka och sanity-kolla innehållet
+    gsum_loaded = pd.read_csv(gsum_path)
+    ysum_loaded = pd.read_csv(ysum_path)
 
-    # kolla att kolumnerna är de vi förväntar oss (bra för Power BI)
-    assert set(gdf.columns) == {"genre_primary", "avg_imdb_rating", "count_titles"}
-    assert set(ydf.columns) == {"year", "count_titles", "avg_imdb_rating"}
+    # Vi vet att sample-datan har Action / Drama / Thriller
+    assert set(gsum_loaded["genre_primary"]) == {"Action", "Drama", "Thriller"}
 
-    # sanity: filer ska inte vara tomma
-    assert len(gdf) >= 1
-    assert len(ydf) >= 1
+    # Vi vet att sample-datan har år 2024 och 2022
+    assert set(ysum_loaded["year"]) == {2024.0, 2022.0}
+
+
+def test_export_analysis_handles_empty(monkeypatch, tmp_path):
+    """
+    Om databasen är tom ska export_analysis():
+    - inte krascha
+    - inte skriva några filer
+    """
+
+    empty_df = pd.DataFrame(
+        columns=[
+            "imdb_id",
+            "title",
+            "year",
+            "type",
+            "genre",
+            "genre_primary",
+            "director",
+            "country",
+            "runtime_min",
+            "imdb_rating",
+            "imdb_votes",
+            "fetched_at",
+        ]
+    )
+
+    # mocka read_movies_df() -> tom df
+    monkeypatch.setattr(an, "read_movies_df", lambda: empty_df)
+
+    # peka analyskatalogen mot tmp_path
+    new_analysis_dir = tmp_path / "analysis_dir_empty"
+    monkeypatch.setattr(an, "ANALYSIS_DIR", new_analysis_dir)
+
+    # Kör export_analysis
+    an.export_analysis()
+
+    # Katalogen ska skapas ändå (mkdir), men inga filer ska skapas
+    assert new_analysis_dir.exists()
+    assert list(new_analysis_dir.iterdir()) == []

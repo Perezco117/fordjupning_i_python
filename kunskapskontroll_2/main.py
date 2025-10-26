@@ -1,11 +1,7 @@
 from __future__ import annotations
 from pathlib import Path
 from dotenv import load_dotenv
-
-# Ladda .env för att få OMDB_API_KEY (men inte för paths/databas)
-PROJECT_ROOT = Path(__file__).resolve().parent
-ENV_FILE = PROJECT_ROOT / ".env"
-loaded = load_dotenv(dotenv_path=ENV_FILE, override=False)
+import os
 
 from src.logger import get_logger, LOG_PATH
 from src.extract import (
@@ -17,51 +13,68 @@ from src.load import get_engine, load_movies_refresh
 from src.analyze import export_analysis
 
 
+# Projektrot = där main.py ligger
+PROJECT_ROOT = Path(__file__).resolve().parent
+ENV_FILE = PROJECT_ROOT / ".env"
+
+# Ladda .env (för OMDB_API_KEY)
+loaded = load_dotenv(dotenv_path=ENV_FILE, override=False)
+
+
 def main() -> int:
     logger = get_logger()
 
     logger.info(f".env loaded from {ENV_FILE} -> {loaded}")
 
-    # 1. Din "insamlingsstrategi"
-    # Bredaste / vanligaste ord + årtalstriggers. Du kan justera listan.
+    api_key = os.getenv("OMDB_API_KEY")
+    if not api_key:
+        logger.error("OMDB_API_KEY saknas i .env. Avbryter.")
+        return 1
+
+    # 1. Sökstrategi: breda queries
     queries = [
-    # breda ord
-    "life", "world", "love", "dream", "dark", "light",
-    "city", "road", "story", "star", "war", "home",
-    "game", "blood", "night", "fire", "sea", "music",
-    "king", "heart",
-    # ord kombinerade med årtal
-    "life 2025", "love 2025", "dream 2024", "war 2024",
-    "story 2023", "city 2023", "man 2022", "night 2022",
-    "home 2021", "king 2021"
+        "life", "world", "love", "dream", "dark", "light",
+        "city", "road", "story", "star", "war", "home",
+        "game", "blood", "night", "fire", "sea", "music",
+        "king", "heart", "man", "night"
     ]
 
-    # Vi vill ha typ senaste ~5 åren. Justera om du vill.
-    year_min = 2021
+    # Vi vill ha ~10 års historik från nu (2025 -> 2015)
+    year_min_extract = 2015
 
     try:
-        # 2. Hämta rådata från många queries och många pages
+        # 2. Bygg rådatasetet från OMDb
         raw = build_dataset_for_year_range(
             queries=queries,
-            year_min=year_min,
-            max_pages_per_query=5,  # du kan öka om du vill ha ännu mer data
+            year_min=year_min_extract,
+            max_pages_per_query=5,
             sleep_sec=0.2,
         )
 
-        logger.info(f"Rådatamängd efter sampling/filter >= {year_min}: {len(raw)} rader")
+        logger.info(
+            f"Rådatamängd efter sampling/filter >= {year_min_extract}: {len(raw)} rader"
+        )
 
-        # 3. Transformera till rent analysvänligt schema
-        trf = transform_movies(raw)
-        logger.info(f"Transformerad datamängd: {len(trf)} rader")
+        # 3. Transformera data → ren, filtrerad, analysklar
+        # Här styr du vilka titlar du vill behålla
+        transformed = transform_movies(
+            raw,
+            allowed_types=["movie"],          # ["movie"], ["series"], ["movie","series"], eller None
+            allowed_genres=["Action"],        # ["Action"], ["Action","Thriller"], eller None
+            dedupe_on="title",                # "title" ger en rad per titel
+            year_min=2015,                    # vi håller konsekvent 10-årsgränsen här också
+        )
+
+        logger.info(f"Transformerad datamängd: {len(transformed)} rader")
 
         # 4. Ladda till SQLite (full refresh)
         engine = get_engine()
         logger.info(f"SQLite path: {engine.url.database}")
         logger.info(f"Log file path: {LOG_PATH}")
 
-        load_movies_refresh(engine, trf)
+        load_movies_refresh(engine, transformed)
 
-        # 5. Exportera analyser (CSV som Power BI kan läsa)
+        # 5. Exportera analyser (Power BI-ingång)
         export_analysis()
 
         logger.info("✅ ETL + ANALYS klart utan fel.")

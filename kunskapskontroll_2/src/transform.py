@@ -1,145 +1,158 @@
-from __future__ import annotations
 import pandas as pd
-from datetime import datetime, timezone
-from .logger import get_logger
+from typing import List, Optional
+from datetime import datetime
 
-logger = get_logger()
 
 class TransformError(Exception):
     pass
 
 
-def _to_int_year(series: pd.Series) -> pd.Series:
-    return (
-        series.astype(str)
-        .str.extract(r"(\d{4})", expand=False)
-        .astype("Int64")
-    )
-
-
-def _runtime_to_minutes(runtime_series: pd.Series) -> pd.Series:
-    return (
-        runtime_series.astype(str)
-        .str.extract(r"(\d+)", expand=False)
-        .astype("Int64")
-    )
-
-
-def _to_float_safely(series: pd.Series) -> pd.Series:
-    out = pd.to_numeric(series.replace("N/A", pd.NA), errors="coerce")
-    return out.astype("Float64")
-
-
-def _votes_to_int(series: pd.Series) -> pd.Series:
-    cleaned = (
-        series.astype(str)
-        .str.replace(",", "", regex=False)
-        .replace("N/A", pd.NA)
-    )
-    return pd.to_numeric(cleaned, errors="coerce").astype("Int64")
-
-
-def transform_movies(df: pd.DataFrame) -> pd.DataFrame:
+def transform_movies(
+    df: pd.DataFrame,
+    allowed_types: Optional[List[str]] = None,
+    allowed_genres: Optional[List[str]] = None,
+    dedupe_on: str = "title",
+    year_min: Optional[int] = None,
+) -> pd.DataFrame:
     """
-    Tar en DataFrame med kolumner från extract-steget, t.ex.:
-        imdbID, Title, Year, Type, Genre, Director, Country,
-        Runtime, imdbRating, imdbVotes
-    Returnerar en städad DataFrame med konsekvent schema:
-        imdb_id, title, year, type,
-        genre_full, genre_primary,
-        director, country,
-        runtime_min,
-        imdb_rating, imdb_votes,
-        fetched_at
+    Tar rådataframe från extract-steget och:
+    - normaliserar kolumner
+    - konverterar datatyper (år, runtime, rating, votes)
+    - filtrerar på årtal (year_min, t.ex. >= 2015)
+    - filtrerar på typ (movie/series/etc) om allowed_types anges
+    - filtrerar på genre om allowed_genres anges
+    - tar bort rader som saknar imdb_rating eller imdb_votes
+    - deduplikerar på valfri kolumn (default: title)
+    Returnerar en analysklar DataFrame.
+    Kastar TransformError om kritiska kolumner saknas.
     """
-    required = {"imdbID", "Title", "Year", "Type"}
-    missing = required - set(df.columns)
-    if missing:
-        raise TransformError(f"Saknar kolumner: {sorted(missing)}")
 
-    out = df.copy()
-
-    out = out.rename(columns={
-        "imdbID": "imdb_id",
-        "Title": "title",
-        "Year": "year",
-        "Type": "type",
-        "Genre": "genre_full",
-        "Director": "director",
-        "Country": "country",
-        "Runtime": "runtime",
-        "imdbRating": "imdb_rating",
-        "imdbVotes": "imdb_votes",
-    })
-
-    # trim strings
-    for col in ["title", "type", "genre_full", "director", "country"]:
-        if col in out.columns:
-            out[col] = out[col].astype(str).str.strip()
-
-    # normalisera type
-    out["type"] = out["type"].astype(str).str.lower()
-
-    # år → Int64
-    out["year"] = _to_int_year(out["year"])
-
-    # runtime → minuter
-    if "runtime" in out.columns:
-        out["runtime_min"] = _runtime_to_minutes(out["runtime"])
-    else:
-        out["runtime_min"] = pd.Series([], dtype="Int64")
-
-    # imdb_rating → Float64
-    if "imdb_rating" in out.columns:
-        out["imdb_rating"] = _to_float_safely(out["imdb_rating"])
-    else:
-        out["imdb_rating"] = pd.Series([], dtype="Float64")
-
-    # imdb_votes → Int64
-    if "imdb_votes" in out.columns:
-        out["imdb_votes"] = _votes_to_int(out["imdb_votes"])
-    else:
-        out["imdb_votes"] = pd.Series([], dtype="Int64")
-
-    # första genren
-    if "genre_full" in out.columns:
-        out["genre_primary"] = (
-            out["genre_full"]
-            .astype(str)
-            .str.split(",")
-            .str[0]
-            .str.strip()
-            .replace("N/A", pd.NA)
-        )
-    else:
-        out["genre_primary"] = pd.NA
-
-    # ta unika imdb_id
-    out = out.drop_duplicates(subset=["imdb_id"]).reset_index(drop=True)
-
-    # tidsstämpel
-    out["fetched_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
-
-    # stabil kolumnordning
-    final_cols = [
-        "imdb_id",
-        "title",
-        "year",
-        "type",
-        "genre_full",
-        "genre_primary",
-        "director",
-        "country",
-        "runtime_min",
-        "imdb_rating",
-        "imdb_votes",
-        "fetched_at",
+    required_cols = [
+        "imdbID",
+        "Title",
+        "Year",
+        "Type",
+        "Genre",
+        "Director",
+        "Country",
+        "Runtime",
+        "imdbRating",
+        "imdbVotes",
     ]
-    for c in final_cols:
-        if c not in out.columns:
-            out[c] = pd.NA
+    missing = [c for c in required_cols if c not in df.columns]
+    if missing:
+        raise TransformError(f"Saknar kolumner i rådata: {missing}")
 
-    out = out[final_cols]
+    # jobba på en kopia
+    df = df.copy()
 
-    logger.info(f"Transformerade {len(out)} rader (utökat schema).")
-    return out
+    # 1. Normalisera kolumnnamn
+    df = df.rename(
+        columns={
+            "imdbID": "imdb_id",
+            "Title": "title",
+            "Year": "year",
+            "Type": "type",
+            "Genre": "genre",
+            "Director": "director",
+            "Country": "country",
+            "Runtime": "runtime",
+            "imdbRating": "imdb_rating",
+            "imdbVotes": "imdb_votes",
+        }
+    )
+
+    # 2. Typkonverteringar
+
+    # "2024" eller "2024– " -> hämta första 4 siffrorna som float
+    df["year"] = (
+        df["year"]
+        .astype(str)
+        .str.extract(r"(\d{4})")[0]
+        .astype("float")
+    )
+
+    # "123 min" -> 123 som float
+    df["runtime_min"] = (
+        df["runtime"]
+        .astype(str)
+        .str.extract(r"(\d+)")
+        [0]
+        .astype("float")
+    )
+
+    # Rating -> float
+    df["imdb_rating"] = pd.to_numeric(df["imdb_rating"], errors="coerce")
+
+    # Votes "12,345" -> 12345 som float
+    df["imdb_votes"] = (
+        df["imdb_votes"]
+        .astype(str)
+        .str.replace(",", "", regex=False)
+    )
+    df["imdb_votes"] = pd.to_numeric(df["imdb_votes"], errors="coerce")
+
+    # Primärgenre = första genren i listan
+    df["genre_primary"] = (
+        df["genre"]
+        .astype(str)
+        .str.split(",")
+        .str[0]
+        .str.strip()
+    )
+
+    # fetched_at timestamp
+    df["fetched_at"] = datetime.utcnow().isoformat(timespec="seconds")
+
+    # 3. Filtrering
+
+    # 3a. Årsfilter (behåll filmer >= year_min)
+    if year_min is not None:
+        df = df[df["year"] >= float(year_min)]
+
+    # 3b. Filtrera på typ (movie/series/etc)
+    if allowed_types is not None:
+        allowed_types_norm = {t.lower() for t in allowed_types}
+        df = df[df["type"].str.lower().isin(allowed_types_norm)]
+
+    # 3c. Filtrera på genre (Action, Thriller, ...)
+    if allowed_genres is not None and len(allowed_genres) > 0:
+        import re
+        escaped = [re.escape(g) for g in allowed_genres]
+        pattern = r"(" + "|".join(escaped) + r")"
+
+        df = df[
+            df["genre"]
+            .astype(str)
+            .str.contains(pattern, case=False, na=False)
+        ]
+
+    # 3d. Ta bort poster som saknar rating eller votes
+    # Vi kräver att båda finns (inte NaN)
+    df = df[df["imdb_rating"].notna() & df["imdb_votes"].notna()]
+
+    # 4. Dedupe (t.ex. title)
+    if dedupe_on not in df.columns:
+        raise TransformError(
+            f"Kan inte deduplicera på '{dedupe_on}' eftersom kolumnen saknas."
+        )
+
+    df = df.drop_duplicates(subset=[dedupe_on], keep="first").reset_index(drop=True)
+
+    # 5. Returnera bestämt schema
+    return df[
+        [
+            "imdb_id",
+            "title",
+            "year",
+            "type",
+            "genre",
+            "genre_primary",
+            "director",
+            "country",
+            "runtime_min",
+            "imdb_rating",
+            "imdb_votes",
+            "fetched_at",
+        ]
+    ]

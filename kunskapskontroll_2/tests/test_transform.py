@@ -3,59 +3,130 @@ import pytest
 from src.transform import transform_movies, TransformError
 
 
-def _raw_df():
+def _make_raw_df():
+    # Bygger en fejkad rå-DataFrame lik den som extract returnerar
     return pd.DataFrame([
         {
             "imdbID": "tt1",
-            "Title": "  Foo Movie ",
-            "Year": "2000–2002",
-            "Type": "Series",
-            "Genre": "Drama, Crime",
-            "Director": "Someone",
-            "Country": "USA, UK",
-            "Runtime": "123 min",
-            "imdbRating": "8.7",
+            "Title": "Action Film",
+            "Year": "2024",
+            "Type": "movie",
+            "Genre": "Action, Thriller",
+            "Director": "Dir A",
+            "Country": "USA",
+            "Runtime": "120 min",
+            "imdbRating": "7.5",
             "imdbVotes": "12,345",
         },
         {
-            # dubblett på imdbID -> ska droppas
-            "imdbID": "tt1",
-            "Title": "Foo Movie DUP",
-            "Year": "2001",
-            "Type": "Series",
-            "Genre": "Drama, Crime",
-            "Director": "Someone Else",
-            "Country": "USA, UK",
-            "Runtime": "111 min",
+            # Dublett på TITLE men annat ID (ska bort om dedupe_on='title')
+            "imdbID": "tt1b",
+            "Title": "Action Film",
+            "Year": "2023",
+            "Type": "movie",
+            "Genre": "Action, Thriller",
+            "Director": "Dir A2",
+            "Country": "USA",
+            "Runtime": "110 min",
             "imdbRating": "8.0",
-            "imdbVotes": "11,000",
+            "imdbVotes": "9,999",
         },
         {
+            # Fel typ (series) - ska filtreras bort om allowed_types=["movie"]
             "imdbID": "tt2",
-            "Title": "Bar Film",
-            "Year": "1999",
-            "Type": "movie",
-            "Genre": "Action",
+            "Title": "Series Thing",
+            "Year": "2022",
+            "Type": "series",
+            "Genre": "Action, Drama",
             "Director": "Dir B",
-            "Country": "Sweden",
-            "Runtime": "99 min",
+            "Country": "UK",
+            "Runtime": "45 min",
+            "imdbRating": "9.0",
+            "imdbVotes": "1,234",
+        },
+        {
+            # Saknar rating/votes -> ska bort
+            "imdbID": "tt3",
+            "Title": "No Rating Yet",
+            "Year": "2024",
+            "Type": "movie",
+            "Genre": "Action, Sci-Fi",
+            "Director": "Dir C",
+            "Country": "CA",
+            "Runtime": "100 min",
             "imdbRating": "N/A",
             "imdbVotes": "N/A",
+        },
+        {
+            # Äldre än year_min (2010 < 2015) -> ska bort
+            "imdbID": "tt4",
+            "Title": "Old Action",
+            "Year": "2010",
+            "Type": "movie",
+            "Genre": "Action, Crime",
+            "Director": "Dir D",
+            "Country": "USA",
+            "Runtime": "95 min",
+            "imdbRating": "6.5",
+            "imdbVotes": "5,000",
+        },
+        {
+            # Inte Action i genren -> ska bort vid allowed_genres=["Action"]
+            "imdbID": "tt5",
+            "Title": "Romantic Comedy",
+            "Year": "2024",
+            "Type": "movie",
+            "Genre": "Romance, Comedy",
+            "Director": "Dir E",
+            "Country": "USA",
+            "Runtime": "100 min",
+            "imdbRating": "7.1",
+            "imdbVotes": "2,200",
         },
     ])
 
 
-def test_transform_movies_basic_schema_and_cleanup():
-    df_in = _raw_df()
-    out = transform_movies(df_in)
+def test_transform_movies_filters_and_dedupes():
+    raw = _make_raw_df()
 
-    # Kolla att alla slutliga kolumner finns
-    expected_cols = [
+    result = transform_movies(
+        raw,
+        allowed_types=["movie"],
+        allowed_genres=["Action"],
+        dedupe_on="title",
+        year_min=2015,
+    )
+
+    # Förväntat kvar:
+    # - "Action Film" (movie, Action, recent, har rating+votes)
+    # Ej kvar:
+    # - "Action Film" (andra raden) -> tas bort pga dedupe_on="title"
+    # - "Series Thing" -> typ "series"
+    # - "No Rating Yet" -> saknar rating/votes
+    # - "Old Action" -> 2010 < 2015
+    # - "Romantic Comedy" -> inte Action-genre
+    titles = list(result["title"])
+    assert titles == ["Action Film"]
+
+    row = result.iloc[0]
+
+    # Kolla typkonvertering
+    # year -> float
+    # runtime_min -> float
+    # imdb_rating -> float
+    # imdb_votes -> float
+    assert row["year"] == pytest.approx(2024.0)
+    assert row["runtime_min"] == pytest.approx(120.0)
+    assert row["imdb_rating"] == pytest.approx(7.5)
+    assert row["imdb_votes"] == pytest.approx(12345.0)
+
+    # Kolla att obligatoriska kolumner finns i slutresultatet
+    for col in [
         "imdb_id",
         "title",
         "year",
         "type",
-        "genre_full",
+        "genre",
         "genre_primary",
         "director",
         "country",
@@ -63,77 +134,14 @@ def test_transform_movies_basic_schema_and_cleanup():
         "imdb_rating",
         "imdb_votes",
         "fetched_at",
-    ]
-    assert list(out.columns) == expected_cols
-
-    # Duplikat på imdb_id ska vara borta -> bara 2 kvar
-    assert len(out) == 2
-    assert set(out["imdb_id"]) == {"tt1", "tt2"}
-
-    # year ska vara första fyrsiffriga året -> Int64
-    row_tt1_year = out.loc[out["imdb_id"] == "tt1", "year"].item()
-    assert row_tt1_year == 2000
-    assert str(out["year"].dtype) == "Int64"
-
-    # runtime_min ska vara Int64
-    row_tt1_runtime = out.loc[out["imdb_id"] == "tt1", "runtime_min"].item()
-    assert row_tt1_runtime == 123
-    assert str(out["runtime_min"].dtype) == "Int64"
-
-    # imdb_rating -> Float64, N/A -> NA
-    tt1_rating = out.loc[out["imdb_id"] == "tt1", "imdb_rating"].item()
-    tt2_rating = out.loc[out["imdb_id"] == "tt2", "imdb_rating"].item()
-    assert pytest.approx(tt1_rating, rel=1e-6) == 8.7
-    assert pd.isna(tt2_rating)
-    assert str(out["imdb_rating"].dtype) == "Float64"
-
-    # imdb_votes -> Int64, "12,345" -> 12345, "N/A" -> NA
-    tt1_votes = out.loc[out["imdb_id"] == "tt1", "imdb_votes"].item()
-    tt2_votes = out.loc[out["imdb_id"] == "tt2", "imdb_votes"].item()
-    assert tt1_votes == 12345
-    assert pd.isna(tt2_votes)
-    assert str(out["imdb_votes"].dtype) == "Int64"
-
-    # genre_primary = första genren före kommatecken
-    tt1_genre = out.loc[out["imdb_id"] == "tt1", "genre_primary"].item()
-    tt2_genre = out.loc[out["imdb_id"] == "tt2", "genre_primary"].item()
-    assert tt1_genre == "Drama"
-    assert tt2_genre == "Action"
-
-    # title ska vara trimmad (inte "  Foo Movie ")
-    tt1_title = out.loc[out["imdb_id"] == "tt1", "title"].item()
-    assert tt1_title == "Foo Movie"
-
-    # type lowercase
-    tt1_type = out.loc[out["imdb_id"] == "tt1", "type"].item()
-    assert tt1_type == "series"
-    tt2_type = out.loc[out["imdb_id"] == "tt2", "type"].item()
-    assert tt2_type == "movie"
-
-    # fetched_at ska finnas och se ut som ISO8601 ungefär
-    ts_val = out.loc[out.index[0], "fetched_at"]
-    # .fromisoformat() kastar om det inte är giltigt
-    from datetime import datetime
-    datetime.fromisoformat(ts_val)
+    ]:
+        assert col in result.columns
 
 
-def test_transform_movies_missing_required_raises():
-    df_missing = pd.DataFrame([
-        {"imdbID": "tt1", "Title": "X"}  # Year och Type saknas
+def test_transform_movies_raises_if_missing_columns():
+    # skapa en dataframe som saknar viktiga kolumner
+    bad = pd.DataFrame([
+        {"imdbID": "ttX", "Title": "X film"}
     ])
     with pytest.raises(TransformError):
-        transform_movies(df_missing)
-
-
-def test_transform_movies_handles_empty_input():
-    df_empty = pd.DataFrame(columns=[
-        "imdbID", "Title", "Year", "Type",
-        "Genre", "Director", "Country",
-        "Runtime", "imdbRating", "imdbVotes"
-    ])
-    out = transform_movies(df_empty)
-
-    assert len(out) == 0
-    assert "imdb_id" in out.columns
-    # dtype check på year ska fortfarande vara nullable Int64
-    assert str(out["year"].dtype) == "Int64"
+        transform_movies(bad)

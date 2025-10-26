@@ -39,3 +39,4 @@ Thumbs.db
 !.gitignore
 !.env.example
 !requirements.txt
+!*.pbix
