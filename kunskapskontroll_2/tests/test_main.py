@@ -81,4 +81,4 @@ def test_main_runs_clean(monkeypatch):
     assert called_kwargs["allowed_types"] == ["movie"]
     assert called_kwargs["allowed_genres"] == ["Action"]
     assert called_kwargs["dedupe_on"] == "title"
-    assert called_kwargs["year_min"] == 2015
+    assert called_kwargs["year_min"] == 2020

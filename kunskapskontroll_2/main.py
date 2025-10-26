@@ -39,8 +39,8 @@ def main() -> int:
         "king", "heart", "man", "night"
     ]
 
-    # Vi vill ha ~10 års historik från nu (2025 -> 2015)
-    year_min_extract = 2015
+    # Vi vill ha ~5 års historik från nu (2025 -> 2020)
+    year_min_extract = 2020
 
     try:
         # 2. Bygg rådatasetet från OMDb
@@ -62,7 +62,7 @@ def main() -> int:
             allowed_types=["movie"],          # ["movie"], ["series"], ["movie","series"], eller None
             allowed_genres=["Action"],        # ["Action"], ["Action","Thriller"], eller None
             dedupe_on="title",                # "title" ger en rad per titel
-            year_min=2015,                    # vi håller konsekvent 10-årsgränsen här också
+            year_min=2020,                    # vi håller konsekvent 10-årsgränsen här också
         )
 
         logger.info(f"Transformerad datamängd: {len(transformed)} rader")

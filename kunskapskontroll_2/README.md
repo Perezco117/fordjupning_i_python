@@ -87,7 +87,7 @@ För att undvika “Too many results” delas anropen upp i flera queries och si
 
 Vid fel hanteras undantag (`ExtractError`) med loggning i stället för att krascha.
 
-Från och med denna version hämtas filmer från **de senaste 10 åren (2015–2025)**.
+Från och med denna version hämtas filmer från **de senaste 5 åren (2020–2025)**.
 
 ---
 
@@ -378,3 +378,5 @@ Detta projekt demonstrerar ett komplett, robust och testat ETL-flöde i Python f
 Koden är modulär, parameterstyrd, och kan användas som mall för fler datakällor, inklusive Power BI-integration.
 
 Pipeline-strukturen, testningen och dokumentationen gör projektet redo för användning i professionella sammanhang.
+
+Problemet med just denna API är dock att den är väldigt begränsad i antal sökningar. Därför blir analysdelen inte bra pga för lite data.
