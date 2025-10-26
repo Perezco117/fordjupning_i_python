@@ -35,7 +35,7 @@ def ensure_schema(engine: Engine) -> None:
       title   TEXT NOT NULL,
       year    INTEGER,
       type    TEXT NOT NULL,
-      genre_full TEXT,
+      genre TEXT,
       genre_primary TEXT,
       director TEXT,
       country TEXT,

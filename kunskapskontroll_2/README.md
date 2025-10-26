@@ -188,7 +188,7 @@ Exempel:
 ### Testning och kvalitetssäkring
 
 
-Projektet har **17 automatiserade Pytest-tester** som säkerställer att alla steg fungerar som avsett.
+Projektet har **18 automatiserade Pytest-tester** som tillsammans säkerställer att hela ETL-flödet fungerar som avsett — från API-hämtning till färdiga analysfiler.
 
 Tester finns för:
 
@@ -196,10 +196,10 @@ Tester finns för:
 * **Extract** – API-hantering, felhantering, sidhantering.
 
 
-* **Transform** – numerisk konvertering, genrefilter, deduplikation.
+* **Transform** – numerisk konvertering, genrefilter, årsfilter, deduplikation.
 
 
-* **Load** – korrekt databasstruktur och refresh.
+* **Load** – korrekt databasstruktur och refresh funktion och PK-begränsningar upprätthålls.
 
 
 * **Analyze** – gruppsammanställning och CSV-export.
@@ -211,7 +211,11 @@ Tester finns för:
 * **Main** – full pipeline testad med mockad data utan nätverk.
 
 
-Alla tester är gröna, inklusive nya tester som verifierar att årsfiltrering och dubblettkontroll fungerar korrekt i `extract.py`.
+* **ETL-integration** – end-to-end-flöde där verkliga funktioner för transform_movies, ensure_schema, load_movies_refresh och analyssteget används mot en riktig in-memory-SQLite-databas.
+
+Detta test verifierar att alla moduler fungerar ihop (schema-matchning, datatyper, filtrering och analysresultat).
+
+Alla tester är gröna.
 
 ---
 
