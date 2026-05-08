@@ -12,87 +12,89 @@ def _fake_extract_output():
     dvs före transform_movies(). Viktigt: kolumnnamnen här
     matchar output från extract.fetch_all_movies_full().
     """
-    return pd.DataFrame([
-        {
-            "imdbID": "tt001",
-            "Title": "Action Hero",
-            "Year": "2024",
-            "Type": "movie",
-            "Genre": "Action, Thriller",
-            "Director": "Jane Director",
-            "Country": "USA",
-            "Runtime": "123 min",
-            "imdbRating": "7.5",
-            "imdbVotes": "12,345",
-        },
-        {
-            # den här raden ska filtreras bort av transform_movies
-            # eftersom den inte är "movie" (den är "series")
-            "imdbID": "tt002",
-            "Title": "Not A Movie",
-            "Year": "2023",
-            "Type": "series",
-            "Genre": "Action, Drama",
-            "Director": "Bob Showrunner",
-            "Country": "UK",
-            "Runtime": "45 min",
-            "imdbRating": "8.8",
-            "imdbVotes": "9,999",
-        },
-        {
-            # den här raden ska också bort, för den är gammal (<2015)
-            "imdbID": "tt003",
-            "Title": "Old Action Classic",
-            "Year": "2010",
-            "Type": "movie",
-            "Genre": "Action, Crime",
-            "Director": "Old Director",
-            "Country": "USA",
-            "Runtime": "95 min",
-            "imdbRating": "8.1",
-            "imdbVotes": "55,000",
-        },
-        {
-            # den här raden saknar imdbVotes -> ska filtreras bort
-            "imdbID": "tt004",
-            "Title": "No Votes Yet",
-            "Year": "2024",
-            "Type": "movie",
-            "Genre": "Action, Sci-Fi",
-            "Director": "New Dir",
-            "Country": "USA",
-            "Runtime": "130 min",
-            "imdbRating": "6.5",
-            "imdbVotes": "N/A",
-        },
-        {
-            # den här raden är en giltig actionfilm >=2015
-            "imdbID": "tt005",
-            "Title": "Action Revenge",
-            "Year": "2022",
-            "Type": "movie",
-            "Genre": "Action, Thriller",
-            "Director": "Jane Director",
-            "Country": "USA",
-            "Runtime": "110 min",
-            "imdbRating": "7.9",
-            "imdbVotes": "44,000",
-        },
-        {
-            # duplicerad titel ("Action Revenge") med lite annan data,
-            # ska bort i dedupe_on="title"
-            "imdbID": "tt006",
-            "Title": "Action Revenge",
-            "Year": "2022",
-            "Type": "movie",
-            "Genre": "Action, Thriller",
-            "Director": "Someone Else",
-            "Country": "USA",
-            "Runtime": "111 min",
-            "imdbRating": "7.8",
-            "imdbVotes": "12,000",
-        },
-    ])
+    return pd.DataFrame(
+        [
+            {
+                "imdbID": "tt001",
+                "Title": "Action Hero",
+                "Year": "2024",
+                "Type": "movie",
+                "Genre": "Action, Thriller",
+                "Director": "Jane Director",
+                "Country": "USA",
+                "Runtime": "123 min",
+                "imdbRating": "7.5",
+                "imdbVotes": "12,345",
+            },
+            {
+                # den här raden ska filtreras bort av transform_movies
+                # eftersom den inte är "movie" (den är "series")
+                "imdbID": "tt002",
+                "Title": "Not A Movie",
+                "Year": "2023",
+                "Type": "series",
+                "Genre": "Action, Drama",
+                "Director": "Bob Showrunner",
+                "Country": "UK",
+                "Runtime": "45 min",
+                "imdbRating": "8.8",
+                "imdbVotes": "9,999",
+            },
+            {
+                # den här raden ska också bort, för den är gammal (<2015)
+                "imdbID": "tt003",
+                "Title": "Old Action Classic",
+                "Year": "2010",
+                "Type": "movie",
+                "Genre": "Action, Crime",
+                "Director": "Old Director",
+                "Country": "USA",
+                "Runtime": "95 min",
+                "imdbRating": "8.1",
+                "imdbVotes": "55,000",
+            },
+            {
+                # den här raden saknar imdbVotes -> ska filtreras bort
+                "imdbID": "tt004",
+                "Title": "No Votes Yet",
+                "Year": "2024",
+                "Type": "movie",
+                "Genre": "Action, Sci-Fi",
+                "Director": "New Dir",
+                "Country": "USA",
+                "Runtime": "130 min",
+                "imdbRating": "6.5",
+                "imdbVotes": "N/A",
+            },
+            {
+                # den här raden är en giltig actionfilm >=2015
+                "imdbID": "tt005",
+                "Title": "Action Revenge",
+                "Year": "2022",
+                "Type": "movie",
+                "Genre": "Action, Thriller",
+                "Director": "Jane Director",
+                "Country": "USA",
+                "Runtime": "110 min",
+                "imdbRating": "7.9",
+                "imdbVotes": "44,000",
+            },
+            {
+                # duplicerad titel ("Action Revenge") med lite annan data,
+                # ska bort i dedupe_on="title"
+                "imdbID": "tt006",
+                "Title": "Action Revenge",
+                "Year": "2022",
+                "Type": "movie",
+                "Genre": "Action, Thriller",
+                "Director": "Someone Else",
+                "Country": "USA",
+                "Runtime": "111 min",
+                "imdbRating": "7.8",
+                "imdbVotes": "12,000",
+            },
+        ]
+    )
 
 
 def test_full_etl_flow_integration(tmp_path):
@@ -107,10 +109,10 @@ def test_full_etl_flow_integration(tmp_path):
     # === 2. Kör transform_movies, precis som main.py gör ===
     transformed = transform_movies(
         raw_df,
-        allowed_types=["movie"],         # bara filmer
-        allowed_genres=["Action"],       # bara sånt som innehåller "Action"
-        dedupe_on="title",               # 1 rad per titel
-        year_min=2015,                   # klipp bort innan 2015
+        allowed_types=["movie"],  # bara filmer
+        allowed_genres=["Action"],  # bara sånt som innehåller "Action"
+        dedupe_on="title",  # 1 rad per titel
+        year_min=2015,  # klipp bort innan 2015
     )
 
     # Förväntat här:

@@ -65,41 +65,22 @@ def transform_movies(
     # 2. Typkonverteringar
 
     # "2024" eller "2024– " -> hämta första 4 siffrorna som float
-    df["year"] = (
-        df["year"]
-        .astype(str)
-        .str.extract(r"(\d{4})")[0]
-        .astype("float")
-    )
+    df["year"] = df["year"].astype(str).str.extract(r"(\d{4})")[0].astype("float")
 
     # "123 min" -> 123 som float
     df["runtime_min"] = (
-        df["runtime"]
-        .astype(str)
-        .str.extract(r"(\d+)")
-        [0]
-        .astype("float")
+        df["runtime"].astype(str).str.extract(r"(\d+)")[0].astype("float")
     )
 
     # Rating -> float
     df["imdb_rating"] = pd.to_numeric(df["imdb_rating"], errors="coerce")
 
     # Votes "12,345" -> 12345 som float
-    df["imdb_votes"] = (
-        df["imdb_votes"]
-        .astype(str)
-        .str.replace(",", "", regex=False)
-    )
+    df["imdb_votes"] = df["imdb_votes"].astype(str).str.replace(",", "", regex=False)
     df["imdb_votes"] = pd.to_numeric(df["imdb_votes"], errors="coerce")
 
     # Primärgenre = första genren i listan
-    df["genre_primary"] = (
-        df["genre"]
-        .astype(str)
-        .str.split(",")
-        .str[0]
-        .str.strip()
-    )
+    df["genre_primary"] = df["genre"].astype(str).str.split(",").str[0].str.strip()
 
     # fetched_at timestamp
     df["fetched_at"] = datetime.now(UTC).isoformat(timespec="seconds")
@@ -118,14 +99,11 @@ def transform_movies(
     # 3c. Filtrera på genre (Action, Thriller, ...)
     if allowed_genres is not None and len(allowed_genres) > 0:
         import re
+
         escaped = [re.escape(g) for g in allowed_genres]
         pattern = r"(?:" + "|".join(escaped) + r")"
 
-        df = df[
-            df["genre"]
-            .astype(str)
-            .str.contains(pattern, case=False, na=False)
-        ]
+        df = df[df["genre"].astype(str).str.contains(pattern, case=False, na=False)]
 
     # 3d. Ta bort poster som saknar rating eller votes
     # Vi kräver att båda finns (inte NaN)

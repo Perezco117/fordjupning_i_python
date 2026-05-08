@@ -22,20 +22,22 @@ def test_main_runs_clean(monkeypatch):
     monkeypatch.setenv("OMDB_API_KEY", "fakekey")
 
     # 2. Fake DataFrame som om extract gav oss rådata
-    fake_df = pd.DataFrame([
-        {
-            "imdbID": "tt1",
-            "Title": "Action Film",
-            "Year": "2024",
-            "Type": "movie",
-            "Genre": "Action, Thriller",
-            "Director": "Dir A",
-            "Country": "USA",
-            "Runtime": "120 min",
-            "imdbRating": "7.5",
-            "imdbVotes": "12,345",
-        }
-    ])
+    fake_df = pd.DataFrame(
+        [
+            {
+                "imdbID": "tt1",
+                "Title": "Action Film",
+                "Year": "2024",
+                "Type": "movie",
+                "Genre": "Action, Thriller",
+                "Director": "Dir A",
+                "Country": "USA",
+                "Runtime": "120 min",
+                "imdbRating": "7.5",
+                "imdbVotes": "12,345",
+            }
+        ]
+    )
 
     # 3. Samla parametrarna som skickas till transform_movies, så vi kan asserta
     called_kwargs = {}

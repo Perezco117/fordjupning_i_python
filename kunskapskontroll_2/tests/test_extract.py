@@ -3,13 +3,16 @@ import pandas as pd
 import src.extract as ex
 import pytest
 
+
 class DummyResp:
     def __init__(self, payload: dict, status=200):
         self._payload = payload
         self.status_code = status
+
     def raise_for_status(self):
         if self.status_code >= 400:
             raise requests.HTTPError(self.status_code)
+
     def json(self):
         return self._payload
 
@@ -18,13 +21,19 @@ def test_fetch_movies_basic_success(monkeypatch):
     # säkerställ API_KEY så reload funkar
     monkeypatch.setenv("OMDB_API_KEY", "TESTKEY")
     import importlib
+
     importlib.reload(ex)
 
     sample_payload = {
         "Response": "True",
         "Search": [
             {"imdbID": "tt0001", "Title": "Movie A", "Year": "1999", "Type": "movie"},
-            {"imdbID": "tt0002", "Title": "Movie B", "Year": "2001–2003", "Type": "series"},
+            {
+                "imdbID": "tt0002",
+                "Title": "Movie B",
+                "Year": "2001–2003",
+                "Type": "series",
+            },
         ],
     }
 
@@ -47,12 +56,10 @@ def test_fetch_movies_basic_success(monkeypatch):
 def test_fetch_movies_basic_no_results(monkeypatch):
     monkeypatch.setenv("OMDB_API_KEY", "TESTKEY")
     import importlib
+
     importlib.reload(ex)
 
-    payload_no_results = {
-        "Response": "False",
-        "Error": "Movie not found!"
-    }
+    payload_no_results = {"Response": "False", "Error": "Movie not found!"}
 
     def fake_get(url, params=None, timeout=None):
         return DummyResp(payload_no_results, 200)
@@ -67,6 +74,7 @@ def test_fetch_movies_basic_no_results(monkeypatch):
 def test_fetch_movie_details_success(monkeypatch):
     monkeypatch.setenv("OMDB_API_KEY", "TESTKEY")
     import importlib
+
     importlib.reload(ex)
 
     detail_payload = {
@@ -98,13 +106,17 @@ def test_fetch_movie_details_success(monkeypatch):
 
 def test_fetch_all_movies_full_multiple_pages(monkeypatch):
     # page1 har två titlar, page2 har en tredje, page3 är tom => loopen bryter
-    page1 = pd.DataFrame([
-        {"imdbID": "tt1", "Title": "Film1", "Year": "2023", "Type": "movie"},
-        {"imdbID": "tt2", "Title": "Film2", "Year": "2022", "Type": "movie"},
-    ])
-    page2 = pd.DataFrame([
-        {"imdbID": "tt3", "Title": "Film3", "Year": "2021", "Type": "series"},
-    ])
+    page1 = pd.DataFrame(
+        [
+            {"imdbID": "tt1", "Title": "Film1", "Year": "2023", "Type": "movie"},
+            {"imdbID": "tt2", "Title": "Film2", "Year": "2022", "Type": "movie"},
+        ]
+    )
+    page2 = pd.DataFrame(
+        [
+            {"imdbID": "tt3", "Title": "Film3", "Year": "2021", "Type": "series"},
+        ]
+    )
 
     def fake_basic(query, page):
         if page == 1:
@@ -137,10 +149,12 @@ def test_fetch_all_movies_full_respects_year_min(monkeypatch):
     """
     calls = {"details_calls": []}
 
-    page_only = pd.DataFrame([
-        {"imdbID": "tt_new", "Title": "NewFilm", "Year": "2023", "Type": "movie"},
-        {"imdbID": "tt_old", "Title": "OldFilm", "Year": "2015", "Type": "movie"},
-    ])
+    page_only = pd.DataFrame(
+        [
+            {"imdbID": "tt_new", "Title": "NewFilm", "Year": "2023", "Type": "movie"},
+            {"imdbID": "tt_old", "Title": "OldFilm", "Year": "2015", "Type": "movie"},
+        ]
+    )
 
     def fake_basic(query, page):
         # bara en sida, sen tom
@@ -163,7 +177,7 @@ def test_fetch_all_movies_full_respects_year_min(monkeypatch):
         query="test",
         max_pages=5,
         sleep_sec=0,
-        year_min=2020,          # <- core grej
+        year_min=2020,  # <- core grej
         global_seen_ids=None,
     )
 
@@ -180,9 +194,11 @@ def test_fetch_all_movies_full_respects_global_seen_ids(monkeypatch):
     """
     calls = {"details_calls": []}
 
-    page_only = pd.DataFrame([
-        {"imdbID": "tt1", "Title": "Film1", "Year": "2024", "Type": "movie"},
-    ])
+    page_only = pd.DataFrame(
+        [
+            {"imdbID": "tt1", "Title": "Film1", "Year": "2024", "Type": "movie"},
+        ]
+    )
 
     def fake_basic(query, page):
         # Samma sida varje gång -> borde bryta efter första loop ändå.
@@ -225,23 +241,36 @@ def test_build_dataset_for_year_range_filters_years(monkeypatch):
     build_dataset_for_year_range ska bara behålla >= 2021.
     """
 
-    def fake_fetch_all_movies_full(query, max_pages, sleep_sec, year_min=None, global_seen_ids=None):
+    def fake_fetch_all_movies_full(
+        query, max_pages, sleep_sec, year_min=None, global_seen_ids=None
+    ):
         if query == "old":
-            return pd.DataFrame([
-                {"imdbID": "tt_old", "Title": "Oldie", "Year": "2018", "Type": "movie"}
-            ])
+            return pd.DataFrame(
+                [
+                    {
+                        "imdbID": "tt_old",
+                        "Title": "Oldie",
+                        "Year": "2018",
+                        "Type": "movie",
+                    }
+                ]
+            )
         else:
-            return pd.DataFrame([
-                {"imdbID": "tt_new", "Title": "Newie", "Year": "2023", "Type": "movie"}
-            ])
+            return pd.DataFrame(
+                [
+                    {
+                        "imdbID": "tt_new",
+                        "Title": "Newie",
+                        "Year": "2023",
+                        "Type": "movie",
+                    }
+                ]
+            )
 
     monkeypatch.setattr(ex, "fetch_all_movies_full", fake_fetch_all_movies_full)
 
     df = ex.build_dataset_for_year_range(
-        queries=["old", "new"],
-        year_min=2021,
-        max_pages_per_query=1,
-        sleep_sec=0
+        queries=["old", "new"], year_min=2021, max_pages_per_query=1, sleep_sec=0
     )
 
     assert len(df) == 1

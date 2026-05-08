@@ -18,6 +18,7 @@ logger = get_logger()
 OMDB_API_KEY = os.getenv("OMDB_API_KEY")
 OMDB_URL = "https://www.omdbapi.com/"
 
+
 class ExtractError(Exception):
     pass
 
@@ -110,7 +111,9 @@ def fetch_all_movies_full(
 
         # Sluta om den här sidan inte gav något
         if page_df.empty:
-            logger.info(f"Inga fler resultat för query={query} efter page={page-1}. Stoppar.")
+            logger.info(
+                f"Inga fler resultat för query={query} efter page={page-1}. Stoppar."
+            )
             break
 
         # Vi går rad för rad (istället för bara unique()) så vi kan läsa Year per titel
@@ -120,11 +123,19 @@ def fetch_all_movies_full(
 
             # Försök tolka första 4 siffrorna i Year (t.ex. "2022–", "2021-2023")
             year_clean = None
-            if isinstance(year_raw, str) and len(year_raw) >= 4 and year_raw[:4].isdigit():
+            if (
+                isinstance(year_raw, str)
+                and len(year_raw) >= 4
+                and year_raw[:4].isdigit()
+            ):
                 year_clean = int(year_raw[:4])
 
             # 1. Årsfilter: hoppa över äldre titlar innan vi ens slår detaljer
-            if year_min is not None and year_clean is not None and year_clean < year_min:
+            if (
+                year_min is not None
+                and year_clean is not None
+                and year_clean < year_min
+            ):
                 continue
 
             # 2. Dublettfilter över hela körningen:
@@ -142,25 +153,43 @@ def fetch_all_movies_full(
 
     if not all_details:
         logger.warning(f"Inga detaljerade poster alls för query={query}")
-        return pd.DataFrame(columns=[
-            "imdbID","Title","Year","Type",
-            "Genre","Director","Country",
-            "Runtime","imdbRating","imdbVotes",
-        ])
+        return pd.DataFrame(
+            columns=[
+                "imdbID",
+                "Title",
+                "Year",
+                "Type",
+                "Genre",
+                "Director",
+                "Country",
+                "Runtime",
+                "imdbRating",
+                "imdbVotes",
+            ]
+        )
 
     details_df = pd.DataFrame(all_details)
 
     cols_we_want = [
-        "imdbID", "Title", "Year", "Type",
-        "Genre", "Director", "Country",
-        "Runtime", "imdbRating", "imdbVotes",
+        "imdbID",
+        "Title",
+        "Year",
+        "Type",
+        "Genre",
+        "Director",
+        "Country",
+        "Runtime",
+        "imdbRating",
+        "imdbVotes",
     ]
     for c in cols_we_want:
         if c not in details_df.columns:
             details_df[c] = pd.NA
 
     final_df = details_df[cols_we_want].copy()
-    logger.info(f"[{query}] Totalt {len(final_df)} titlar efter filtrering/avdubblering.")
+    logger.info(
+        f"[{query}] Totalt {len(final_df)} titlar efter filtrering/avdubblering."
+    )
     return final_df
 
 
@@ -202,12 +231,21 @@ def build_dataset_for_year_range(
 
     if not all_batches:
         logger.warning("Inget data hittades alls för de givna queries.")
-        return pd.DataFrame(columns=[
-            "imdbID","Title","Year","Type",
-            "Genre","Director","Country",
-            "Runtime","imdbRating","imdbVotes",
-            "__source_query__",
-        ])
+        return pd.DataFrame(
+            columns=[
+                "imdbID",
+                "Title",
+                "Year",
+                "Type",
+                "Genre",
+                "Director",
+                "Country",
+                "Runtime",
+                "imdbRating",
+                "imdbVotes",
+                "__source_query__",
+            ]
+        )
 
     big = pd.concat(all_batches, ignore_index=True)
 
@@ -217,10 +255,7 @@ def build_dataset_for_year_range(
 
     # Filtrera på år (Year kan vara '2021–2022', '2024', 'N/A'...)
     year_extracted = (
-        big["Year"]
-        .astype(str)
-        .str.extract(r"(\d{4})", expand=False)
-        .astype("Int64")
+        big["Year"].astype(str).str.extract(r"(\d{4})", expand=False).astype("Int64")
     )
     mask_recent = year_extracted >= year_min
     big = big[mask_recent].reset_index(drop=True)

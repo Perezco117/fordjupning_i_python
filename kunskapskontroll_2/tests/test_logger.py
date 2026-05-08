@@ -42,7 +42,9 @@ def test_get_logger_config_and_idempotency():
             file_handler = h
             break
 
-    assert file_handler is not None, "RotatingFileHandler saknas trots att vi förväntar oss den"
+    assert (
+        file_handler is not None
+    ), "RotatingFileHandler saknas trots att vi förväntar oss den"
 
     # flush:a till disk
     file_handler.flush()

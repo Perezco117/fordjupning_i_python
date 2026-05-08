@@ -76,6 +76,7 @@ def year_count_summary(df: pd.DataFrame) -> pd.DataFrame:
     logger.info(f"Skapade year_count_summary ({len(summary)} år).")
     return summary
 
+
 def export_analysis():
     """
     Kör hela analysflödet:

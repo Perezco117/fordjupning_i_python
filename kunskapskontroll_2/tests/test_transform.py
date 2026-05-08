@@ -5,85 +5,87 @@ from src.transform import transform_movies, TransformError
 
 def _make_raw_df():
     # Bygger en fejkad rå-DataFrame lik den som extract returnerar
-    return pd.DataFrame([
-        {
-            "imdbID": "tt1",
-            "Title": "Action Film",
-            "Year": "2024",
-            "Type": "movie",
-            "Genre": "Action, Thriller",
-            "Director": "Dir A",
-            "Country": "USA",
-            "Runtime": "120 min",
-            "imdbRating": "7.5",
-            "imdbVotes": "12,345",
-        },
-        {
-            # Dublett på TITLE men annat ID (ska bort om dedupe_on='title')
-            "imdbID": "tt1b",
-            "Title": "Action Film",
-            "Year": "2023",
-            "Type": "movie",
-            "Genre": "Action, Thriller",
-            "Director": "Dir A2",
-            "Country": "USA",
-            "Runtime": "110 min",
-            "imdbRating": "8.0",
-            "imdbVotes": "9,999",
-        },
-        {
-            # Fel typ (series) - ska filtreras bort om allowed_types=["movie"]
-            "imdbID": "tt2",
-            "Title": "Series Thing",
-            "Year": "2022",
-            "Type": "series",
-            "Genre": "Action, Drama",
-            "Director": "Dir B",
-            "Country": "UK",
-            "Runtime": "45 min",
-            "imdbRating": "9.0",
-            "imdbVotes": "1,234",
-        },
-        {
-            # Saknar rating/votes -> ska bort
-            "imdbID": "tt3",
-            "Title": "No Rating Yet",
-            "Year": "2024",
-            "Type": "movie",
-            "Genre": "Action, Sci-Fi",
-            "Director": "Dir C",
-            "Country": "CA",
-            "Runtime": "100 min",
-            "imdbRating": "N/A",
-            "imdbVotes": "N/A",
-        },
-        {
-            # Äldre än year_min (2010 < 2015) -> ska bort
-            "imdbID": "tt4",
-            "Title": "Old Action",
-            "Year": "2010",
-            "Type": "movie",
-            "Genre": "Action, Crime",
-            "Director": "Dir D",
-            "Country": "USA",
-            "Runtime": "95 min",
-            "imdbRating": "6.5",
-            "imdbVotes": "5,000",
-        },
-        {
-            # Inte Action i genren -> ska bort vid allowed_genres=["Action"]
-            "imdbID": "tt5",
-            "Title": "Romantic Comedy",
-            "Year": "2024",
-            "Type": "movie",
-            "Genre": "Romance, Comedy",
-            "Director": "Dir E",
-            "Country": "USA",
-            "Runtime": "100 min",
-            "imdbRating": "7.1",
-            "imdbVotes": "2,200",
-        },
-    ])
+    return pd.DataFrame(
+        [
+            {
+                "imdbID": "tt1",
+                "Title": "Action Film",
+                "Year": "2024",
+                "Type": "movie",
+                "Genre": "Action, Thriller",
+                "Director": "Dir A",
+                "Country": "USA",
+                "Runtime": "120 min",
+                "imdbRating": "7.5",
+                "imdbVotes": "12,345",
+            },
+            {
+                # Dublett på TITLE men annat ID (ska bort om dedupe_on='title')
+                "imdbID": "tt1b",
+                "Title": "Action Film",
+                "Year": "2023",
+                "Type": "movie",
+                "Genre": "Action, Thriller",
+                "Director": "Dir A2",
+                "Country": "USA",
+                "Runtime": "110 min",
+                "imdbRating": "8.0",
+                "imdbVotes": "9,999",
+            },
+            {
+                # Fel typ (series) - ska filtreras bort om allowed_types=["movie"]
+                "imdbID": "tt2",
+                "Title": "Series Thing",
+                "Year": "2022",
+                "Type": "series",
+                "Genre": "Action, Drama",
+                "Director": "Dir B",
+                "Country": "UK",
+                "Runtime": "45 min",
+                "imdbRating": "9.0",
+                "imdbVotes": "1,234",
+            },
+            {
+                # Saknar rating/votes -> ska bort
+                "imdbID": "tt3",
+                "Title": "No Rating Yet",
+                "Year": "2024",
+                "Type": "movie",
+                "Genre": "Action, Sci-Fi",
+                "Director": "Dir C",
+                "Country": "CA",
+                "Runtime": "100 min",
+                "imdbRating": "N/A",
+                "imdbVotes": "N/A",
+            },
+            {
+                # Äldre än year_min (2010 < 2015) -> ska bort
+                "imdbID": "tt4",
+                "Title": "Old Action",
+                "Year": "2010",
+                "Type": "movie",
+                "Genre": "Action, Crime",
+                "Director": "Dir D",
+                "Country": "USA",
+                "Runtime": "95 min",
+                "imdbRating": "6.5",
+                "imdbVotes": "5,000",
+            },
+            {
+                # Inte Action i genren -> ska bort vid allowed_genres=["Action"]
+                "imdbID": "tt5",
+                "Title": "Romantic Comedy",
+                "Year": "2024",
+                "Type": "movie",
+                "Genre": "Romance, Comedy",
+                "Director": "Dir E",
+                "Country": "USA",
+                "Runtime": "100 min",
+                "imdbRating": "7.1",
+                "imdbVotes": "2,200",
+            },
+        ]
+    )
 
 
 def test_transform_movies_filters_and_dedupes():
@@ -140,8 +142,6 @@ def test_transform_movies_filters_and_dedupes():
 
 def test_transform_movies_raises_if_missing_columns():
     # skapa en dataframe som saknar viktiga kolumner
-    bad = pd.DataFrame([
-        {"imdbID": "ttX", "Title": "X film"}
-    ])
+    bad = pd.DataFrame([{"imdbID": "ttX", "Title": "X film"}])
     with pytest.raises(TransformError):
         transform_movies(bad)

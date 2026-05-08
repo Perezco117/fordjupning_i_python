@@ -12,7 +12,6 @@ from src.transform import transform_movies, TransformError
 from src.load import get_engine, load_movies_refresh
 from src.analyze import export_analysis
 
-
 # Projektrot = där main.py ligger
 PROJECT_ROOT = Path(__file__).resolve().parent
 ENV_FILE = PROJECT_ROOT / ".env"
@@ -33,10 +32,27 @@ def main() -> int:
 
     # 1. Sökstrategi: breda queries
     queries = [
-        "life", "world", "love", "dream", "dark", "light",
-        "city", "road", "story", "star", "war", "home",
-        "game", "blood", "night", "fire", "sea", "music",
-        "king", "heart", "man",
+        "life",
+        "world",
+        "love",
+        "dream",
+        "dark",
+        "light",
+        "city",
+        "road",
+        "story",
+        "star",
+        "war",
+        "home",
+        "game",
+        "blood",
+        "night",
+        "fire",
+        "sea",
+        "music",
+        "king",
+        "heart",
+        "man",
     ]
 
     # Vi vill ha ~5 års historik från nu (2025 -> 2020)
@@ -59,10 +75,12 @@ def main() -> int:
         # Här styr du vilka titlar du vill behålla
         transformed = transform_movies(
             raw,
-            allowed_types=["movie"],          # ["movie"], ["series"], ["movie","series"], eller None
-            allowed_genres=["Action"],        # ["Action"], ["Action","Thriller"], eller None
-            dedupe_on="title",                # "title" ger en rad per titel
-            year_min=2020,                    # vi håller konsekvent 10-årsgränsen här också
+            allowed_types=[
+                "movie"
+            ],  # ["movie"], ["series"], ["movie","series"], eller None
+            allowed_genres=["Action"],  # ["Action"], ["Action","Thriller"], eller None
+            dedupe_on="title",  # "title" ger en rad per titel
+            year_min=2020,  # vi håller konsekvent 10-årsgränsen här också
         )
 
         logger.info(f"Transformerad datamängd: {len(transformed)} rader")

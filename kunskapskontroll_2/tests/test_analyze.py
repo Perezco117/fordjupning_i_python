@@ -11,50 +11,52 @@ def _sample_movies_df():
     Skapa en liten fejkad movies-tabell som liknar vad som ligger i SQLite.
     Viktigt: kolumnnamnen ska matcha vad load.py skriver in.
     """
-    return pd.DataFrame([
-        {
-            "imdb_id": "tt1",
-            "title": "Action Film",
-            "year": 2024.0,
-            "type": "movie",
-            "genre": "Action, Thriller",
-            "genre_primary": "Action",
-            "director": "Dir A",
-            "country": "USA",
-            "runtime_min": 120.0,
-            "imdb_rating": 7.5,
-            "imdb_votes": 12345.0,
-            "fetched_at": "2025-10-26T12:00:00",
-        },
-        {
-            "imdb_id": "tt2",
-            "title": "Drama Film",
-            "year": 2024.0,
-            "type": "movie",
-            "genre": "Drama",
-            "genre_primary": "Drama",
-            "director": "Dir B",
-            "country": "UK",
-            "runtime_min": 100.0,
-            "imdb_rating": 8.0,
-            "imdb_votes": 5555.0,
-            "fetched_at": "2025-10-26T12:05:00",
-        },
-        {
-            "imdb_id": "tt3",
-            "title": "Old Thriller",
-            "year": 2022.0,
-            "type": "movie",
-            "genre": "Thriller, Crime",
-            "genre_primary": "Thriller",
-            "director": "Dir C",
-            "country": "CA",
-            "runtime_min": 90.0,
-            "imdb_rating": 6.0,
-            "imdb_votes": 2000.0,
-            "fetched_at": "2025-10-26T12:10:00",
-        },
-    ])
+    return pd.DataFrame(
+        [
+            {
+                "imdb_id": "tt1",
+                "title": "Action Film",
+                "year": 2024.0,
+                "type": "movie",
+                "genre": "Action, Thriller",
+                "genre_primary": "Action",
+                "director": "Dir A",
+                "country": "USA",
+                "runtime_min": 120.0,
+                "imdb_rating": 7.5,
+                "imdb_votes": 12345.0,
+                "fetched_at": "2025-10-26T12:00:00",
+            },
+            {
+                "imdb_id": "tt2",
+                "title": "Drama Film",
+                "year": 2024.0,
+                "type": "movie",
+                "genre": "Drama",
+                "genre_primary": "Drama",
+                "director": "Dir B",
+                "country": "UK",
+                "runtime_min": 100.0,
+                "imdb_rating": 8.0,
+                "imdb_votes": 5555.0,
+                "fetched_at": "2025-10-26T12:05:00",
+            },
+            {
+                "imdb_id": "tt3",
+                "title": "Old Thriller",
+                "year": 2022.0,
+                "type": "movie",
+                "genre": "Thriller, Crime",
+                "genre_primary": "Thriller",
+                "director": "Dir C",
+                "country": "CA",
+                "runtime_min": 90.0,
+                "imdb_rating": 6.0,
+                "imdb_votes": 2000.0,
+                "fetched_at": "2025-10-26T12:10:00",
+            },
+        ]
+    )
 
 
 def test_genre_rating_summary_and_year_count_summary(monkeypatch):
