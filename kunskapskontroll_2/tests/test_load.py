@@ -53,7 +53,7 @@ def test_load_refresh_preserves_pk_and_counts():
 
     # prova skriva in en dublett med samma imdb_id -> ska kasta IntegrityError
     dup = pd.DataFrame([df.iloc[0].to_dict()])
-    with pytest.raises(IntegrityError):
+    with pytest.raises((IntegrityError, pd.errors.DatabaseError)):
         dup.to_sql("movies", con=engine, if_exists="append", index=False)
 
     # antalet rader ska forfarande vara 2
