@@ -1,7 +1,6 @@
 import requests
 import pandas as pd
 import src.extract as ex
-import pytest
 
 
 class DummyResp:

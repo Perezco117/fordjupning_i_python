@@ -1,7 +1,5 @@
 import pandas as pd
 import pytest
-import importlib
-from pathlib import Path
 
 import src.analyze as an
 
