@@ -1,4 +1,6 @@
-## Kunskapskontroll 2 – Python Fördjupning
+# Fördjupning i Python – Kunskapskontroll 2
+
+![CI](https://github.com/Perezco117/fordjupning_i_python/actions/workflows/ci.yml/badge.svg)
 
 **Projekt:** ETL- och analys-pipeline mot OMDb API med Power BI-integration
 
@@ -20,6 +22,19 @@ Systemet är byggt med tydlig moduluppdelning (Extract, Transform, Load, Analyze
 
 ---
 
+### CI/CD
+
+Projektet använder GitHub Actions för att automatiskt köra testsviten vid varje push och pull request.
+
+Arbetsflödet:
+- klonar repot
+- installerar Python 3.12
+- installerar beroenden från `requirements.txt`
+- kör tester med `pytest`
+
+Detta säkerställer att ETL-pipelinen fungerar i en ren miljö och inte enbart lokalt.
+
+---
 
 ### Syfte och mål
 
