@@ -1,6 +1,6 @@
 import pandas as pd
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, UTC
 
 
 class TransformError(Exception):
@@ -102,7 +102,7 @@ def transform_movies(
     )
 
     # fetched_at timestamp
-    df["fetched_at"] = datetime.utcnow().isoformat(timespec="seconds")
+    df["fetched_at"] = datetime.now(UTC).isoformat(timespec="seconds")
 
     # 3. Filtrering
 
@@ -119,7 +119,7 @@ def transform_movies(
     if allowed_genres is not None and len(allowed_genres) > 0:
         import re
         escaped = [re.escape(g) for g in allowed_genres]
-        pattern = r"(" + "|".join(escaped) + r")"
+        pattern = r"(?:" + "|".join(escaped) + r")"
 
         df = df[
             df["genre"]
