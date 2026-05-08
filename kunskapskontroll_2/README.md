@@ -234,6 +234,16 @@ Alla tester är gröna.
 
 ---
 
+CI-pipelinen kör automatiska kvalitetskontroller vid varje push och pull request:
+
+- `ruff check .` kontrollerar kodkvalitet, oanvända importer och enkla felmönster.
+- `black --check .` säkerställer konsekvent kodformattering.
+- `pytest` kör hela testsviten.
+
+Detta gör att ändringar valideras automatiskt innan de betraktas som stabila.
+
+---
+
 
 ### Resultat och Power BI
 
